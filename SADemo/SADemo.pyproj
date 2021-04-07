@@ -8,7 +8,7 @@
     <StartupFile>Demo1.py</StartupFile>
     <SearchPath>..\SAPyTools\bin\Debug\</SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
-    <InterpreterId>IronPython|2.7-32</InterpreterId>
+    <InterpreterId>Global|PythonCore|3.7</InterpreterId>
     <LaunchProvider>IronPython (.NET) launcher</LaunchProvider>
     <OutputPath>.</OutputPath>
     <Name>SADemo</Name>
@@ -23,7 +23,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <InterpreterReference Include="IronPython|2.7-32" />
+    <InterpreterReference Include="Global|PythonCore|3.7" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Demo1.py" />
