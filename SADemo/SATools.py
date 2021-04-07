@@ -1,13 +1,28 @@
+import sys
+import os
 import clr
+
+basepath = r"C:\Users\user\github\SAPythonDemo"
+
+clr.AddReference("System")
+clr.AddReference("System.Reflection")
 import System
-clr.AddReference('SAPyTools')
-from System.Collections.Generic import List
+import System.Reflection
+#from System.Collections.Generic import List
+
+clr.AddReference(os.path.join(basepath, r"SAPyTools\obj\Debug\SAPyTools"))
 from SAPyTools import MPHelper
 
-sdk = System.Activator.CreateInstance(
-    type=System.Type.GetTypeFromProgID('SpatialAnalyzerSDK.Application'))
+# SA SDK dll
+sa_sdk_dll_file = os.path.join(basepath, r"SAPyTools\obj\Debug\Interop.SpatialAnalyzerSDK.dll")
+sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
+sa_sdk_class_type = sa_sdk_dll.GetType("SpatialAnalyzerSDK.SpatialAnalyzerSDKClass")
+sdk = System.Activator.CreateInstance(sa_sdk_class_type)
 
-SAConnected = sdk.Connect("localhost")
+#sdk = System.Activator.CreateInstance(
+#    type=System.Type.GetTypeFromProgID('SpatialAnalyzerSDK.Application'))
+
+SAConnected = sdk.Connect("127.0.0.1")
 mphelper = MPHelper(sdk)
 
 
