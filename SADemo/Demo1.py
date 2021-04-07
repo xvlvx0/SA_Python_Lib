@@ -1,3 +1,4 @@
+import sys
 from SATools import *
 
 try:
@@ -8,24 +9,30 @@ try:
     targetGroup = "Measured Points"
     singlePointProfile = "Single Pt. To SA"
     saInstrument = "Leica AT960/930"
-    fitTolerance = 0.002
+    fitTolerance = 0.2  # mm
 
-    myPoints = [Point3D(10, 10, 10),
-                Point3D(10, 20, 10),
-                Point3D(10, 10, 20),
-                Point3D(5,  5,  5),
-                Point3D(5,  10, 15),
-                Point3D(15,  5, 20),
+    # point data in mm
+    myPoints = [Point3D(100, 100, 100),
+                Point3D(100, 200, 100),
+                Point3D(100, 100, 200),
+                Point3D(50,  50,  50),
+                Point3D(50,  100, 150),
+                Point3D(150,  50, 200),
                 ]
 
     # Procedure
     if not SAConnected:
         raise Exception('SA Not Connected')
 
+    # delete points from collection and pointgroup
+    collection = f'{nominals}::{myGroup}::Point Group'
+    points = 'P*'
+    delete_points_wildcard_selection(collection, points)
+
     # cleanup job data
     objectNames = [
-        "{}::{}::Point Group".format(nominals, myGroup),
-        "{}::{}::Point Group".format(actuals, targetGroup)
+        f"{nominals}::{myGroup}::Point Group",
+        f"{actuals}::{targetGroup}::Point Group"
         ]
     delete_objects(objectNames)
 
@@ -41,7 +48,7 @@ try:
 
     # Do some work
     for i in range(len(myPoints)):
-        pointName = "P" + str(i+1)
+        pointName = "p" + str(i+1)
 
         construct_a_point(nominals, myGroup, pointName, 
                           myPoints[i].X,
