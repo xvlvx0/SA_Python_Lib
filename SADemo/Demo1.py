@@ -63,9 +63,9 @@ try:
     stop_instrument(actuals, instid)
 
     if fitResult == mpresult.DONESUCCESS:
-        print "Fit Good"
+        print("Fit Good")
     else:
-        print "Fit Failed {}".format(fitResult)
+        print("Fit Failed {}".format(fitResult))
 
-except Exception, e:
-    print "Error: {}".format(str(e))
+except Exception as err:
+    print("Error: {}".format(str(err)))
