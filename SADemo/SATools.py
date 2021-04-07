@@ -1,4 +1,3 @@
-import sys
 import os
 import clr
 
@@ -8,7 +7,7 @@ clr.AddReference("System")
 clr.AddReference("System.Reflection")
 import System
 import System.Reflection
-#from System.Collections.Generic import List
+from System.Collections.Generic import List
 
 clr.AddReference(os.path.join(basepath, r"SAPyTools\obj\Debug\SAPyTools"))
 from SAPyTools import MPHelper
@@ -51,15 +50,16 @@ class CTE:
     CarbonFiberCTE_1DegF = 0
 
 def getIntRef():
-    return clr.Reference[int]()
-
+    #return clr.Reference[int]()
+    return 0
 
 def getStrRef():
-    return clr.Reference[str]()
+    #return clr.Reference[str]()
+    return ''
 
 def getDoubleRef():
-    return clr.Reference[float]()
-
+    #return clr.Reference[float]()
+    return 0.0
 
 def construct_collection(name, makeDefault):
     sdk.SetStep("Construct Collection")
@@ -201,4 +201,45 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
     sdk.SetStep("Set (absolute) Instrument Scale Factor (CAUTION!)")
     sdk.SetColInstIdArg("Instrument's ID", collection, instid)
     sdk.SetDoubleArg("Scale Factor", scaleFactor)
+    sdk.ExecuteStep()
+
+# ################################
+# Chapter 1 - Fundamental Terms ##
+# ################################
+
+# ##############################
+# Chapter 2 - File Operations ##
+# ##############################
+
+# ######################################
+# Chapter 3 - Process Flow Operations ##
+# ######################################
+
+# ###############################
+# Chapter 4 - MP Task Overview ##
+# ###############################
+
+# ###########################
+# Chapter 5 - View Control ##
+# ###########################
+
+# ######################################
+# Chapter 6 - Cloud Viewer Operations ##
+# ######################################
+
+# ############################################
+# Chapter 7 - Construction Operations, p185 ##
+# ############################################
+
+def delete_points_wildcard_selection(colObjNameRefList, pName):
+    """p198"""
+    sdk.SetStep("Delete Points WildCard Selection")
+    #Dim objNameList(1)
+    objNameList = []
+    #objNameList( 0 ) = "Nominals::My Points::Point Group"
+    objNameList.append(colObjNameRefList)
+    #Dim vObjectList As Object = New System.Runtime.InteropServices.VariantWrapper(objNameList)
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Groups to Delete From", vObjectList)
+    sdk.SetPointNameArg("WildCard Selection Names", "*", "*", pName)
     sdk.ExecuteStep()
