@@ -131,37 +131,50 @@ def object_existence_test(ColObjName):
 #     """p112"""
 #     fname = 'Collection Existence Test'
 #     fprint(fname)
-#    sdk.SetStep(fname)
+#     sdk.SetStep(fname)
 #     sdk.SetCollectionNameArg("Collection Name to check", ColName)
 #     sdk.ExecuteStep()
 #     r = getResult(fname)
 
 
-def ask_for_string():
+def ask_for_string(question, *args, **kwargs):
     """p117"""
-    fname = ''
-    fprint(fname)
-    sdk.SetStep(fname)
-    sdk.ExecuteStep()
-    if not getResult(fname):
-        return False
-    else:
-        string = ''
-        return string
 
-def ask_for_string_pulldown(input):
-    """p118"""
-    fname = ''
+    if 'initialanswer' in kwargs:
+        initialanswer = kwargs['initialanswer']
+    else:
+        initialanswer = ''
+    
+    fname = 'Ask for String'
     fprint(fname)
     sdk.SetStep(fname)
-    input = ['', '', '', ]
+    sdk.SetStringArg("Question to ask", question)
+    sdk.SetBoolArg("Password Entry?", False)
+    sdk.SetStringArg("Initial Answer", initialanswer)
+    sdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
     sdk.ExecuteStep()
-    if not getResult(fname):
-        return False
-    else:
-        index = 0
-        string = ''
-        return index, string
+    getResult(fname)
+    answer = sdk.GetStringArg("Answer", '')
+    return answer[1]
+
+
+def ask_for_string_pulldown(question, answers):
+    """p118"""
+    fname = 'Ask for String (Pull-Down Version)'
+    fprint(fname)
+    sdk.SetStep(fname)
+    # question section
+    questionList = [question, ]
+    QvStringList = System.Runtime.InteropServices.VariantWrapper(questionList)
+    sdk.SetStringRefListArg("Question or Statement", QvStringList)
+    # anwsers section
+    AvStringList = System.Runtime.InteropServices.VariantWrapper(answers)
+    sdk.SetStringRefListArg("Possible Answers", AvStringList)
+    sdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    sdk.ExecuteStep()
+    getResult(fname)
+    answer = sdk.GetStringArg("Answer", '')
+    return answer[1]
 
 
 # ###############################
@@ -255,12 +268,12 @@ def rename_collection(fromName, toName):
     getResult(fname)
 
 
-def delete_points_wildcard_selection(colObjNameRefList, pName):
+def delete_points_wildcard_selection(Col, Group, ObjType, pName):
     """p198"""
     fname = "Delete Points WildCard Selection"
     fprint(fname)
     sdk.SetStep(fname)
-    objNameList = [colObjNameRefList, ]  # "Nominals::My Points::Point Group"
+    objNameList = [f'{Col}::{Group}::{ObjType}', ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     sdk.SetCollectionObjectNameRefListArg("Groups to Delete From", vObjectList)
     sdk.SetPointNameArg("WildCard Selection Names", "*", "*", pName)
@@ -357,9 +370,43 @@ def set_default_callout_view_properties():
     getResult(fname)
 
 
+def make_a_point_name_ref_list_runtime_select(prompt):
+    """p402"""
+    fname = 'Make a Point Name Ref List - Runtime Select'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetStringArg("User Prompt", prompt)
+    sdk.ExecuteStep( )
+    getResult(fname)
+    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
+    return ptList[1]
+
+
 # ##################################
 # Chapter 8 - Analysis Operations ##
 # ##################################
+def get_ith_point_name_from_point_name_ref_list_iterator(ptList, i):
+    """p498"""
+    fname = 'Get i-th Point Name From Point Name Ref List (Iterator)'
+    fprint(fname)
+    sdk.SetStep(fname)
+    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptList)
+    sdk.SetPointNameRefListArg("Point Name List", vPointObjectList)
+    sdk.SetIntegerArg("Point Name Index", i+1)
+    sdk.ExecuteStep()
+    getResult(fname)
+    sCol = sdk.GetStringArg("Collection", '')
+    sGrp = sdk.GetStringArg("Group", '')
+    sTarg = sdk.GetStringArg("Target", '')
+    pointname = sdk.GetPointNameArg("Resulting Point Name", '', '', '')
+    print(f'sCol: {sCol}')
+    print(f'sGrp: {sGrp}')
+    print(f'sTarg: {sTarg}')
+    print(f'Pointname: {pointname}')
+    return (sCol, sGrp, sTarg, pointname)
+
+
 def fit_geometry_to_point_group(geomType, dataCol, dataGroup, resultCol,
                                 resultGroup, name, report, fit, oot
                                 ):
@@ -410,16 +457,22 @@ def best_fit_group_to_group(refCollection, refGroup,
     return boolean
 
 
-def make_geometry_fit_and_compare_to_nominal_relationship(relatCol, relatName, nomCol,
-                                                          nomName, data, resultCol, resultName
-                                                          ):
+def make_geometry_fit_and_compare_to_nominal_relationship(
+        relatCol, relatName,
+        nomCol, nomName,
+        data,
+        resultCol, resultName
+        ):
     """p649"""
     fname = 'Make Geometry Fit and Compare to Nominal Relationship'
     fprint(fname)
     sdk.SetStep(fname)
     sdk.SetCollectionObjectNameArg("Relationship Name", relatCol, relatName)
     sdk.SetCollectionObjectNameArg("Nominal Geometry", nomCol, nomName)
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(data)
+    objNameList = []
+    for item in data:
+        objNameList.append(f'{item[0]}::{item[1]}::Point Group')
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     sdk.SetCollectionObjectNameRefListArg("Point Groups to Fit", vObjectList)
     sdk.SetCollectionObjectNameArg("Resulting Object Name (Optional)", resultCol, resultName)
     sdk.SetStringArg("Fit Profile Name (Optional)", "")
@@ -456,16 +509,16 @@ def get_last_instrument_index(collection):
     return (ColInstID[1], ColInstID[2])
 
 
-def point_at_target(instrumentCollection, instId, collection, group, name):
+def point_at_target(instCol, instId, collection, group, name):
     """p877"""
     fname = "Point At Target"
     fprint(fname)
     sdk.SetStep(fname)
-    sdk.SetColInstIdArg("Instrument ID", instrumentCollection, instId)
+    sdk.SetColInstIdArg("Instrument ID", instCol, instId)
     sdk.SetPointNameArg("Target ID", collection, group, name)
     sdk.SetFilePathArg("HTML Prompt File (optional)", "", False)
     sdk.ExecuteStep()
-    fprint(fname)
+    getResult(fname)
 
 
 def add_new_instrument(instName):
@@ -556,6 +609,29 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
 # ##################################
 # Chapter 14 - Utility Operations ##
 # ##################################
+def  move_collection_to_folder(collection, folder):
+    """p1055"""
+    fname = 'Move Collection to Folder'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionNameArg("Collection", collection)
+    sdk.SetStringArg("Folder Path", folder)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_collection_notes(collection, notes):
+    """p1063"""
+    fname = 'Set Collection Notes'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionNameArg("Collection", collection)
+    stringList = [notes]
+    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    sdk.SetEditTextArg("Notes", vStringList)
+    sdk.SetBoolArg("Append? (FALSE = Overwrite)", True)
+    sdk.ExecuteStep( )
+    getResult(fname)
 
 
 # ###########################################
