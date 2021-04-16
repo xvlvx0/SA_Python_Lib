@@ -23,6 +23,7 @@ from System.Collections.Generic import List
 clr.AddReference(os.path.join(basepath, r"dll\SAPyTools"))
 from SAPyTools import MPHelper
 
+
 # SA SDK dll
 sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
@@ -32,6 +33,7 @@ SAConnected = sdk.Connect("127.0.0.1")
 if not SAConnected:
     raise IOError('Connection to SA SDK failed!')
     sys.exit(1)
+
 
 # MP Helper
 class MPResult:
@@ -43,8 +45,9 @@ class MPResult:
     DONEMINORERROR = 4
     CURRENTTASK = 5
     UNKNOWN = 6
-mphelper = MPHelper(sdk)
 mpresult = MPResult()
+mphelper = MPHelper(sdk)
+
 
 # ###############
 # Base methods ##
@@ -113,6 +116,7 @@ def delete_objects(listobj):
 # ##############################
 # Chapter 2 - File Operations ##
 # ##############################
+
 
 # ######################################
 # Chapter 3 - Process Flow Operations ##
@@ -257,6 +261,18 @@ def center_graphics_about_objects(ColWild, ObjWild):
 # ######################################
 # Chapter 7 - Construction Operations ##
 # ######################################
+def rename_point(orgCol, orgGrp, orgName, newCol, newGrp, newName):
+    """p192"""
+    fname = 'Rename Point'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetPointNameArg("Original Point Name", orgCol, orgGrp, orgName)
+    sdk.SetPointNameArg("New Point Name", newCol, newGrp, newName)
+    sdk.SetBoolArg("Overwrite if exists?", False)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
 def rename_collection(fromName, toName):
     """p194"""
     fname = "Rename Collection"
@@ -264,6 +280,18 @@ def rename_collection(fromName, toName):
     sdk.SetStep(fname)
     sdk.SetCollectionNameArg("Original Collection Name", fromName)
     sdk.SetCollectionNameArg("New Collection Name", toName)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def delete_points(ptCol, ptSelection):
+    """p197"""
+    fname = 'Delete Points'
+    fprint(fname)
+    sdk.SetStep(fname)
+    ptNameList = [f'{ptCol}::{ptSelection}::', ]
+    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
+    sdk.SetPointNameRefListArg('Point Names', vPointObjectList)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -293,7 +321,7 @@ def set_or_construct_default_collection(colName):
 
 def construct_collection(name, makeDefault):
     """p202"""
-        # default collection = makeDefault/True
+    # default collection = makeDefault/True
     # collection = makeDefault/False
     fname = "Construct Collection"
     fprint(fname)
@@ -312,11 +340,9 @@ def get_active_collection():
     sdk.SetStep(fname)
 
     sdk.ExecuteStep()
-    if not getResult(fname):
-        return False
-    else:
-        activeCollection = ''
-        return activeCollection
+    getResult(fname)
+    activeCollection = ''
+    return activeCollection
 
 
 def delete_collection(collection):
@@ -336,6 +362,46 @@ def construct_a_point(collection, group, name, x, y, z):
     sdk.SetStep(fname)
     sdk.SetPointNameArg("Point Name", collection, group, name)
     sdk.SetVectorArg("Working Coordinates", x, y, z)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def construct_line_2_points(name, fCol, fGrp, fTarg, sCol, sGrp, sTarg):
+    """p262"""
+    fname = 'Construct Line 2 Points'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Line Name", "", name)
+    sdk.SetPointNameArg("First Point", fCol, fGrp, fTarg)
+    sdk.SetPointNameArg("Second Point", sCol, sGrp, sTarg)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def construct_frame_known_origin_object_direction_object_direction(
+                                                        ptCol, ptGrp, ptTarg,
+                                                        x, y, z,
+                                                        priCol, priObj, priAxisDef,
+                                                        secCol, secObj, secAxisDef,
+                                                        frameCol, frameName
+                                                        ):
+    """p327"""
+    fname = 'Construct Frame, Known Origin, Object Direction, Object Direction'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetPointNameArg("Known Point", ptCol, ptGrp, ptTarg)
+    sdk.SetVectorArg("Known Point Value in New Frame", x, y, z)
+    sdk.SetCollectionObjectNameArg("Primary Axis Object", priCol, priObj)
+    # Available options: 
+    # "+X Axis", "-X Axis", "+Y Axis", "-Y Axis", "+Z Axis", 
+    # "-Z Axis", 
+    sdk.SetAxisNameArg("Primary Axis Defines Which Axis", priAxisDef)
+    sdk.SetCollectionObjectNameArg("Secondary Axis Object", secCol, secObj)
+    # Available options: 
+    # "+X Axis", "-X Axis", "+Y Axis", "-Y Axis", "+Z Axis", 
+    # "-Z Axis", 
+    sdk.SetAxisNameArg("Secondary Axis Defines Which Axis", secAxisDef)
+    sdk.SetCollectionObjectNameArg("Frame Name (Optional)", frameCol, frameName)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -370,6 +436,25 @@ def set_default_callout_view_properties():
     getResult(fname)
 
 
+def make_a_point_name_runtime_select(txt):
+    """p398"""
+    fname = 'Make a Point Name - Runtime Select'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetStringArg("User Prompt", txt)
+    sdk.ExecuteStep()
+    getResult(fname)
+    point = sdk.GetPointNameArg("Resultant Point Name", '', '', '')
+    print(point)
+    if point[0]:
+        sCol = point[1]
+        sGrp = point[2]
+        sTarg = point[3]
+        return (sCol, sGrp, sTarg)
+    else:
+        return False
+
+
 def make_a_point_name_ref_list_runtime_select(prompt):
     """p402"""
     fname = 'Make a Point Name Ref List - Runtime Select'
@@ -380,35 +465,73 @@ def make_a_point_name_ref_list_runtime_select(prompt):
     getResult(fname)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
-    return ptList[1]
+    print(f'ptList: {ptList}')
+    if ptList[0]:
+        print(f'ptList[1]: {ptList[1]}')
+        points = ptList[1]
+        print(f'p: {points}')
+        newPtList = []
+        for i in range(points.GetLength(0)):
+            temp = points[i].split('::')
+            newPtList.append(temp)
+        return newPtList
+    else:
+        return False
 
 
 # ##################################
 # Chapter 8 - Analysis Operations ##
 # ##################################
-def get_ith_point_name_from_point_name_ref_list_iterator(ptList, i):
-    """p498"""
-    fname = 'Get i-th Point Name From Point Name Ref List (Iterator)'
+def get_point_coordinate(collection, group, pointname):
+    """p489"""
+    fname = 'Get Point Coordinate'
     fprint(fname)
     sdk.SetStep(fname)
-    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptList)
-    sdk.SetPointNameRefListArg("Point Name List", vPointObjectList)
-    sdk.SetIntegerArg("Point Name Index", i+1)
+    sdk.SetPointNameArg("Point Name", collection, group, pointname)
     sdk.ExecuteStep()
-    getResult(fname)
-    sCol = sdk.GetStringArg("Collection", '')
-    sGrp = sdk.GetStringArg("Group", '')
-    sTarg = sdk.GetStringArg("Target", '')
-    pointname = sdk.GetPointNameArg("Resulting Point Name", '', '', '')
-    print(f'sCol: {sCol}')
-    print(f'sGrp: {sGrp}')
-    print(f'sTarg: {sTarg}')
-    print(f'Pointname: {pointname}')
-    return (sCol, sGrp, sTarg, pointname)
+    Vector = sdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
+    print(f'Vector: {Vector}')
+    # xVal = sdk.GetDoubleArg("X Value", 0.0)
+    # yVal = sdk.GetDoubleArg("Y Value", 0.0)
+    # zVal = sdk.GetDoubleArg("Z Value", 0.0)
+    if Vector[0]:
+        xVal = Vector[1]
+        yVal = Vector[2]
+        zVal = Vector[3]
+        return (xVal, yVal, zVal)
+    else:
+        return False
 
 
-def fit_geometry_to_point_group(geomType, dataCol, dataGroup, resultCol,
-                                resultGroup, name, report, fit, oot
+# ########################################
+# --- NOT DIRECTLY NEEDED --- 
+# CAN BE DONE WITH NORMAL PYTHON FOR LOOP
+# ########################################
+# def get_ith_point_name_from_point_name_ref_list_iterator(ptList, i):
+#     """p498"""
+#     fname = 'Get i-th Point Name From Point Name Ref List (Iterator)'
+#     fprint(fname)
+#     sdk.SetStep(fname)
+#     vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptList)
+#     sdk.SetPointNameRefListArg("Point Name List", vPointObjectList)
+#     sdk.SetIntegerArg("Point Name Index", i+1)
+#     sdk.ExecuteStep()
+#     getResult(fname)
+#     sCol = sdk.GetStringArg("Collection", '')
+#     sGrp = sdk.GetStringArg("Group", '')
+#     sTarg = sdk.GetStringArg("Target", '')
+#     pointname = sdk.GetPointNameArg("Resulting Point Name", '', '', '')
+#     print(f'sCol: {sCol}')
+#     print(f'sGrp: {sGrp}')
+#     print(f'sTarg: {sTarg}')
+#     print(f'Pointname: {pointname}')
+#     return (sCol, sGrp, sTarg, pointname)
+
+
+def fit_geometry_to_point_group(geomType,
+                                dataCol, dataGroup,
+                                resultCol, resultName,
+                                profilename, reportdiv, fittol, outtol
                                 ):
     """p547"""
     fname = 'Fit Geometry to Point Group'
@@ -419,11 +542,11 @@ def fit_geometry_to_point_group(geomType, dataCol, dataGroup, resultCol,
     #     "Cone", "Paraboloid", "Ellipse", "Slot", 
     sdk.SetGeometryTypeArg("Geometry Type", geomType)
     sdk.SetCollectionObjectNameArg("Group To Fit", dataCol, dataGroup)
-    sdk.SetCollectionObjectNameArg("Resulting Object Name", resultCol, resultGroup)
-    sdk.SetStringArg("Fit Profile Name", name)
-    sdk.SetBoolArg("Report Deviations", report)
-    sdk.SetDoubleArg("Fit Interface Tolerance (-1.0 use profile)", fit)
-    sdk.SetBoolArg("Ignore Out of Tolerance Points", oot)
+    sdk.SetCollectionObjectNameArg("Resulting Object Name", resultCol, resultName)
+    sdk.SetStringArg("Fit Profile Name", profilename)
+    sdk.SetBoolArg("Report Deviations", reportdiv)
+    sdk.SetDoubleArg("Fit Interface Tolerance (-1.0 use profile)", fittol)
+    sdk.SetBoolArg("Ignore Out of Tolerance Points", outtol)
     sdk.SetCollectionObjectNameArg("Starting Condition Geometry (optional)", "", "")
     sdk.ExecuteStep( )
     getResult(fname)
@@ -457,12 +580,43 @@ def best_fit_group_to_group(refCollection, refGroup,
     return boolean
 
 
-def make_geometry_fit_and_compare_to_nominal_relationship(
-        relatCol, relatName,
-        nomCol, nomName,
-        data,
-        resultCol, resultName
-        ):
+def make_group_to_nominal_group_relationship(relCol, relName,
+                                             nomCol, nomGrp,
+                                             meaCol, meaGrp,
+                                             ):
+    """p646"""
+    fname = 'Make Group to Nominal Group Relationship'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    sdk.SetCollectionObjectNameArg("Nominal Group Name", nomCol, nomGrp)
+    sdk.SetCollectionObjectNameArg("Measured Group Name", meaCol, meaGrp)
+    sdk.SetBoolArg("Auto Update a Vector Group?", False)
+    sdk.SetBoolArg("Use Closest Point?", True)
+    sdk.SetBoolArg("Display Closest Point Watch Window?", False)
+    sdk.SetBoolArg("Use View Zooming With Proximity?", False)
+    sdk.SetBoolArg("Ignore Points Beyond Threshold?", False)
+    sdk.SetDoubleArg("Proximity Threshold?", 0.01)
+    sdk.SetToleranceVectorOptionsArg(
+        "Tolerance",
+        False, 0.0, False, 0.0, False, 0.0, True, 1.5,
+        False, 0.0, False, 0.0, False, 0.0, True, 0.0
+        )
+    sdk.SetToleranceVectorOptionsArg(
+        "Constraint",
+        True, 0.0, True, 0.0, True, 0.0, False, 0.0,
+        True, 0.0, True, 0.0, True, 0.0, False, 0.0
+        )
+    sdk.SetDoubleArg("Fit Weight", 1.0)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def make_geometry_fit_and_compare_to_nominal_relationship(relatCol, relatName,
+                                                          nomCol, nomName,
+                                                          data,
+                                                          resultCol, resultName
+                                                          ):
     """p649"""
     fname = 'Make Geometry Fit and Compare to Nominal Relationship'
     fprint(fname)
@@ -480,17 +634,98 @@ def make_geometry_fit_and_compare_to_nominal_relationship(
     getResult(fname)
 
 
+def set_relationship_reporting_frame(relCol, relGrp, frmCol, frmName):
+    """p679"""
+    fname = 'Set Relationship Reporting Frame'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relGrp)
+    sdk.SetCollectionObjectNameArg("Reporting Frame", frmCol, frmName)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_geom_relationship_criteria(relCol, relName, type):
+    """p680"""
+    fname = 'Set Geom Relationship Criteria'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    if type == 'Flatness':
+        sdk.SetStringArg("Criteria", "Flatness")
+        sdk.SetBoolArg("Show in Report", True)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 0.1, True, 0.1)
+        sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
+        sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    elif type == 'Centroid Z':
+        sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
+        sdk.SetStringArg("Criteria", "Centroid Z")
+        sdk.SetBoolArg("Show in Report", True)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, 3.0)
+        sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
+        sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    elif type == 'Avg Dist Between':
+        sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
+        sdk.SetStringArg("Criteria", "Avg Dist Between")
+        sdk.SetBoolArg("Show in Report", True)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, 3.0)
+        sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
+        sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    else:
+        print('incorrect type set')
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_relationship_desired_meas_count(relCol, relName, count):
+    """p693"""
+    fname = 'Set Relationship Desired Meas Count'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    sdk.SetIntegerArg("Desired Measurement Count", count)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
 # ###################################
 # Chapter 9 - Reporting Operations ##
 # ###################################
+def set_relationship_report_options(relCol, relGrp):
+    """p770"""
+    fname = 'Set Relationship Report Options'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relGrp)
+    sdk.SetPointDeltaReportOptionsArg("Report Options", "Cartesian", "Single", True, True, True, True, True, True, False, True, True, True)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def notify_user_text_array(txt, timeout=0):
+    """p804"""
+    fname = 'Notify User Text Array'
+    fprint(fname)
+    sdk.SetStep(fname)
+    stringList = [txt, ]
+    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    sdk.SetEditTextArg("Notification Text", vStringList)
+    sdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    sdk.SetBoolArg("Auto expand to fit text?", False)
+    sdk.SetIntegerArg("Display Timeout", timeout)
+    sdk.ExecuteStep( )
+    getResult(fname)
+
 
 # ####################################
 # Chapter 10 - Excel Direct Connect ##
 # ####################################
 
+
 # ##############################################
 # Chapter 11 - MS Office Reporting Operations ##
 # ##############################################
+
 
 # #####################################
 # Chapter 12 - Instrument Operations ##
@@ -631,6 +866,28 @@ def set_collection_notes(collection, notes):
     sdk.SetEditTextArg("Notes", vStringList)
     sdk.SetBoolArg("Append? (FALSE = Overwrite)", True)
     sdk.ExecuteStep( )
+    getResult(fname)
+
+
+def set_working_frame(col, name):
+    """p1080"""
+    fname = 'Set Working Frame'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("New Working Frame Name", col, name)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
+def delete_objects(col, name, objtype):
+    """p1089"""
+    fname = 'Delete Objects'
+    fprint(fname)
+    sdk.SetStep(fname)
+    objNameList = [f'{col}::{name}::{objtype}', ]
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Object Names", vObjectList)
+    sdk.ExecuteStep()
     getResult(fname)
 
 
