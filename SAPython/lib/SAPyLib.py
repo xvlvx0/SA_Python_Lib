@@ -6,7 +6,7 @@ Author: L. Ververgaard
 Date: 2020-04-08
 Version: 0
 """
-import os
+import sys
 import clr
 
 basepath = r"C:\Analyzer Data\Scripts\SAPython"
@@ -20,9 +20,6 @@ import System
 import System.Reflection
 from System.Collections.Generic import List
 
-clr.AddReference(os.path.join(basepath, r"dll\SAPyTools"))
-from SAPyTools import MPHelper
-
 
 # SA SDK dll
 sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
@@ -33,20 +30,6 @@ SAConnected = sdk.Connect("127.0.0.1")
 if not SAConnected:
     raise IOError('Connection to SA SDK failed!')
     sys.exit(1)
-
-
-# MP Helper
-class MPResult:
-    SDKERROR = -1
-    UNDONE = 0
-    INPROGRESS = 1
-    DONESUCCESS = 2
-    DONEFATALERROR = 3
-    DONEMINORERROR = 4
-    CURRENTTASK = 5
-    UNKNOWN = 6
-mpresult = MPResult()
-mphelper = MPHelper(sdk)
 
 
 # ###############
@@ -68,24 +51,32 @@ def getResult(fname):
     boolean, result = sdk.GetMPStepResult(0)
     dprint(f'{fname}: {boolean}, {result}')
     if result == -1:
+        # SDKERROR = -1
         raise SystemError('Execution raised: SDKERROR!')
     elif result == 0:
+        # UNDONE = 0
         dprint('Execution: undone.')
         raise IOError()
     elif result == 1:
+        # INPROGRESS = 1
         dprint('Execution: inprogress.')
     elif result == 2:
+        # DONESUCCESS = 2
         return True
     elif result == 3:
+        # DONEFATALERROR = 3
         dprint('Execution: FAILED!')
         raise IOError()
     elif result == 4:
+        # DONEMINORERROR = 4
         dprint('Execution: FAILED - minor error!')
         return True
     elif result == 5:
+        # CURRENTTASK = 5
         dprint('Execution: current task')
         raise IOError()
     elif result == 6:
+        # UNKNOWN = 6
         dprint('I have no clue!')
         raise IOError()
 
@@ -107,10 +98,6 @@ class CTE:
     AluminumCTE_1DegF = 0.0000131
     SteelCTE_1DegF = 0.0000065
     CarbonFiberCTE_1DegF = 0
-
-
-def delete_objects(listobj):
-    mphelper.DeleteObjects(List[str](listobj))
 
 
 # ##############################
@@ -189,12 +176,14 @@ def ask_for_string_pulldown(question, answers):
 # ###########################
 # Chapter 5 - View Control ##
 # ###########################
-def hide_objects(ColObjNameRefList):
+def hide_objects(collection, objects, name):
     """p153"""
-    fname = ''
+    fname = 'Hide Objects'
     fprint(fname)
     sdk.SetStep(fname)
-
+    objNameList = [f'{collection}::{objects}::{name}', ]
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Objects To Hide", vObjectList)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -211,12 +200,14 @@ def show_hide_objects(ColName, ObjType, hide):
     getResult(fname)
 
 
-def show_objects(ColObjNameRefList):
+def show_objects(collection, objects, name):
     """p155"""
-    fname = ''
+    fname = 'Show Objects'
     fprint(fname)
     sdk.SetStep(fname)
-
+    objNameList = [f'{collection}::{objects}::{name}', ]
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Objects To Show", vObjectList)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -475,6 +466,36 @@ def make_a_point_name_ref_list_runtime_select(prompt):
             temp = points[i].split('::')
             newPtList.append(temp)
         return newPtList
+    else:
+        return False
+
+
+def make_a_collection_object_name_ref_list_by_type(collection, objtype):
+    """p416"""
+    fname = 'Make a Collection Object Name Ref List - By Type'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetStringArg("Collection", collection)
+    # Available options: 
+    # "Any", "B-Spline", "Circle", "Cloud", "Scan Stripe Cloud", 
+    # "Cross Section Cloud", "Cone", "Cylinder", "Datum", "Ellipse", 
+    # "Frame", "Frame Set", "Line", "Paraboloid", "Perimeter", 
+    # "Plane", "Point Group", "Point Set", "Poly Surface", "Scan Stripe Mesh", 
+    # "Slot", "Sphere", "Surface", "Torus", "Vector Group", 
+    sdk.SetObjectTypeArg("Object Type", objtype)
+    sdk.ExecuteStep()
+    getResult(fname)
+    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    objectList = sdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
+    print(f'objectList: {objectList}')
+    if objectList[0]:
+        print(f'objectList[1]: {objectList[1]}')
+        objects = objectList[1]
+        objectsList = []
+        for i in range(objects.GetLength(0)):
+            temp = objects[i].split('::')
+            objectsList.append(temp)
+        return objectsList
     else:
         return False
 
