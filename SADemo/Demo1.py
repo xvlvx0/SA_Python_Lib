@@ -1,78 +1,108 @@
+"""
+This Demo1 file demostrates the SAPyLib functionallity. 
+A very basic use case of several functions:
+- declaring variables
+- creation of points, groups and collections
+- deletion of points, groups and collections
+- adding and connecting to an instrument
+- pointing at and measuring the nominal points
+- basic analysis of the measured data
+
+All three the 'Demo1.*' files work toghether.
+The Demo1.xit64 provides the basic setup.
+The Demo1.mp files is contected to a button in the scripts section of the Demo1.xit64 file and calls the Demo1.py file.
+This Demo1.py file executes the scripted logic.
+"""
 import sys
-from SATools import *
+sys.path.append('C:\Analyzer Data\Scripts\SAPython\lib')    # adding the library to the path variable
+import SAPyLib as sa                                        # importing the library
 
-try:
-    # Data
-    nominals = "Nominals"
-    actuals = "Actuals"
-    myGroup = "My Points"
-    targetGroup = "Measured Points"
-    singlePointProfile = "Single Pt. To SA"
-    saInstrument = "Leica AT960/930"
-    fitTolerance = 0.2  # mm
 
-    # point data in mm
-    myPoints = [Point3D(100, 100, 100),
-                Point3D(100, 200, 100),
-                Point3D(100, 100, 200),
-                Point3D(50,  50,  50),
-                Point3D(50,  100, 150),
-                Point3D(150,  50, 200),
-                ]
+# Declaring variables
+nomCol = "Nominals"
+nomGroup = "NomPoints"
+actualCol = "Actuals"
+actualGroup = "Measured Points"
+singlePointProfile = "Single Pt. To SA"
+saInstrument = "Leica AT960/930"
+fitTolerance = 0.2  # mm
 
-    # Procedure
-    if not SAConnected:
-        raise Exception('SA Not Connected')
 
-    # delete points from collection and pointgroup
-    collection = f'{nominals}::{myGroup}::Point Group'
-    points = 'P*'
-    delete_points_wildcard_selection(collection, points)
+# create a point list
+# (values in mm)
+myPoints = [sa.Point3D(100, 100, 100),
+            sa.Point3D(100, 200, 100),
+            sa.Point3D(100, 100, 200),
+            sa.Point3D(50,  50,  50),
+            sa.Point3D(50,  100, 150),
+            sa.Point3D(150,  50, 200),
+            ]
 
-    # cleanup job data
-    objectNames = [
-        f"{nominals}::{myGroup}::Point Group",
-        f"{actuals}::{targetGroup}::Point Group"
-        ]
-    delete_objects(objectNames)
 
-    # Re-setup collections 
-    set_or_construct_default_collection(nominals)
-    delete_collection(actuals)
-    set_or_construct_default_collection(actuals)
+# Below are three different ways of deleting objects:
+# - by individual points
+# - by point groups
+# - by collections
+#
+# delete points from collection and pointgroup
+sa.delete_points_wildcard_selection(nomCol, nomGroup, 'Point Group', 'p*')
+#
+# delete point groups
+sa.delete_objects(actualCol, actualGroup, 'Point Group')
+#
+# delete collections
+sa.delete_collection(nomCol)
+sa.delete_collection(actualCol)
 
-    # Add Station 
-    instid, _ = add_new_instrument(saInstrument)
 
-    start_instrument(instid, False, True)
+# Creating collections
+sa.set_or_construct_default_collection(nomCol)
+sa.set_or_construct_default_collection(actualCol)
 
-    # Do some work
-    for i in range(len(myPoints)):
-        pointName = "p" + str(i+1)
 
-        construct_a_point(nominals, myGroup, pointName, 
-                          myPoints[i].X,
-                          myPoints[i].Y,
-                          myPoints[i].Z)
+# Add an instrument and connect
+instCol, instId = sa.add_new_instrument(saInstrument)       # two variables are returned, the collection and object names of the tracker
+sa.start_instrument(instCol, instId, False, True)           # run the tracker connection method
 
-        point_at_target(actuals, instid, nominals, myGroup, pointName)
 
-        configure_and_measure(actuals, instid, actuals, targetGroup,
-                              pointName, singlePointProfile,
-                              True, True, 0)
+# Create and measure the nominal points
+for i in range(len(myPoints)):
+    # make a point
+    pointName = f'p{i+1}'
+    sa.construct_a_point(nomCol, nomGroup, pointName, 
+                            myPoints[i].X,
+                            myPoints[i].Y,
+                            myPoints[i].Z
+                            )
+    # point at
+    sa.point_at_target(instCol, instId, nomCol, nomGroup, pointName)
 
-    fitResult = best_fit_group_to_group(nominals, myGroup,
-                                        actuals, targetGroup,
-                                        True,
-                                        fitTolerance, fitTolerance,
-                                        False)
+    # measure point
+    sa.configure_and_measure(
+        instCol, instId, actualCol, actualGroup,
+        pointName, singlePointProfile,
+        True, True, 0
+        )
 
-    stop_instrument(actuals, instid)
 
-    if fitResult == mpresult.DONESUCCESS:
-        print("Fit Good")
-    else:
-        print("Fit Failed {}".format(fitResult))
+# fit the measured points
+fitResult = sa.best_fit_group_to_group(
+                nomCol, nomGroup,
+                actualCol, actualGroup,
+                True,
+                fitTolerance, fitTolerance,
+                False
+                )
+if fitResult:
+    print('Fit Good')
+else:
+    print(f'Fit Failed {fitResult}')
 
-except Exception as err:
-    print("Error: {}".format(str(err)))
+
+# Disconnect the instrument
+sa.stop_instrument(instCol, instId)
+
+
+# Exit the script
+print('Demo1 finished!')
+sys.exit(0)

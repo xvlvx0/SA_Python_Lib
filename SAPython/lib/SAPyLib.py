@@ -4,9 +4,10 @@ SAPyLib = Spatial Analyzer Python .NET library
 This library provides the communication layer to the SA SDK .NET dll.
 Author: L. Ververgaard
 Date: 2020-04-08
-Version: 0
+Version: 1
 """
 import sys
+import os
 import clr
 
 basepath = r"C:\Analyzer Data\Scripts\SAPython"
