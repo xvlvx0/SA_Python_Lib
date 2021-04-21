@@ -119,16 +119,6 @@ def object_existence_test(ColObjName):
     getResult(fname)
 
 
-# def collection_existence_test(ColName):
-#     """p112"""
-#     fname = 'Collection Existence Test'
-#     fprint(fname)
-#     sdk.SetStep(fname)
-#     sdk.SetCollectionNameArg("Collection Name to check", ColName)
-#     sdk.ExecuteStep()
-#     r = getResult(fname)
-
-
 def ask_for_string(question, *args, **kwargs):
     """p117"""
 
@@ -167,6 +157,22 @@ def ask_for_string_pulldown(question, answers):
     getResult(fname)
     answer = sdk.GetStringArg("Answer", '')
     return answer[1]
+
+
+def ask_for_user_decision_extended(question, choices):
+    """p122"""
+    fname = 'Ask for User Decision Extended'
+    fprint(fname)
+    sdk.SetStep(fname)
+    stringList = [question, ]
+    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    sdk.SetEditTextArg("Question or Statement", vStringList)
+    sdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    #sdk.NOT_SUPPORTED("Button Answers", choices)
+    sdk.ExecuteStep()
+    getResult(fname)
+    selected_answer = 0
+    return selected_answer
 
 
 # ###############################
@@ -227,10 +233,9 @@ def show_hide_callout_view(CalloutName, show):
 
 def hide_all_callout_views():
     """p160"""
-    fname = ''
+    fname = 'Hide All Callout Views'
     fprint(fname)
     sdk.SetStep(fname)
-
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -276,12 +281,12 @@ def rename_collection(fromName, toName):
     getResult(fname)
 
 
-def delete_points(ptCol, ptSelection):
+def delete_points(collection, group, point):
     """p197"""
     fname = 'Delete Points'
     fprint(fname)
     sdk.SetStep(fname)
-    ptNameList = [f'{ptCol}::{ptSelection}::', ]
+    ptNameList = [f'{collection}::{group}::{point}', ]
     vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
     sdk.SetPointNameRefListArg('Point Names', vPointObjectList)
     sdk.ExecuteStep()
@@ -299,6 +304,43 @@ def delete_points_wildcard_selection(Col, Group, ObjType, pName):
     sdk.SetPointNameArg("WildCard Selection Names", "*", "*", pName)
     sdk.ExecuteStep()
     getResult(fname)
+
+
+def construct_objects_from_surface_faces_runtime_select(*args, **kwargs):
+    """p199"""
+    fname = 'Construct Objects From Surface Faces - Runtime Select'
+    fprint(fname)
+    sdk.SetStep(fname)
+    if 'facetype' in kwargs:
+        facetype = kwargs['facetype']
+        if not facetype:
+            print('No facetype selected!')
+            sys.exit(1)
+    # Set correct states
+    state = [False, False, False, False, False, False, False]
+    if facetype == 'plane':
+        state[0] = True
+    elif facetype == 'cylinder':
+        state[1] = True
+    elif facetype == 'spere':
+        state[2] = True
+    elif facetype == 'cone':
+        state[3] = True
+    elif facetype == 'line':
+        state[4] = True
+    elif facetype == 'point':
+        state[5] = True
+    elif facetype == 'circle':
+        state[6] = True
+    # Set the correct type
+    sdk.SetBoolArg("Construct Planes?", state[0])
+    sdk.SetBoolArg("Construct Cylinders?", state[1])
+    sdk.SetBoolArg("Construct Spheres?", state[2])
+    sdk.SetBoolArg("Construct Cones?", state[3])
+    sdk.SetBoolArg("Construct Lines?", state[4])
+    sdk.SetBoolArg("Construct Points?", state[5])
+    sdk.SetBoolArg("Construct Circles?", state[6])
+    sdk.ExecuteStep()
 
 
 def set_or_construct_default_collection(colName):
@@ -447,6 +489,29 @@ def make_a_point_name_runtime_select(txt):
         return False
 
 
+def make_a_point_name_ref_list_from_a_group(collection, group):
+    """p401"""
+    fname = 'Make a Point Name Ref List From a Group'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Group Name", collection, group)
+    sdk.ExecuteStep()
+    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
+    print(f'ptList: {ptList}')
+    if ptList[0]:
+        print(f'ptList[1]: {ptList[1]}')
+        points = ptList[1]
+        print(f'p: {points}')
+        newPtList = []
+        for i in range(points.GetLength(0)):
+            temp = points[i].split('::')
+            newPtList.append(temp)
+        return newPtList
+    else:
+        return False
+
+
 def make_a_point_name_ref_list_runtime_select(prompt):
     """p402"""
     fname = 'Make a Point Name Ref List - Runtime Select'
@@ -504,6 +569,34 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
 # ##################################
 # Chapter 8 - Analysis Operations ##
 # ##################################
+def get_number_of_collections():
+    """p465"""
+    fname = 'Get Number of Collections'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.ExecuteStep()
+    n = sdk.GetIntegerArg('Total Count', 0)
+    if not n:
+        return False
+    else:
+        return n
+
+
+def get_ith_collection_name(i):
+    """p466"""
+    fname = 'Get i-th Collection Name'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetIntegerArg('Collection Index', i)
+    sdk.ExecuteStep()
+    collection = sdk.GetCollectionNameArg('Resultant Name', '')
+    print(f'Collection: {collection}')
+    if not collection:
+        return False
+    else:
+        return collection
+
+
 def get_point_coordinate(collection, group, pointname):
     """p489"""
     fname = 'Get Point Coordinate'
@@ -656,6 +749,36 @@ def make_geometry_fit_and_compare_to_nominal_relationship(relatCol, relatName,
     getResult(fname)
 
 
+def set_relationship_associated_data(collection, group, collectionmeasured, groupmeasured):
+    """p664"""
+    # The function only excepts 'groups' as an input.
+    # Individual points, point clouds and objects aren't support for now.
+    fname = 'Set Relationship Associated Data'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", collection, group)
+    # individual points
+    ptNameList = []
+    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
+    sdk.SetPointNameRefListArg("Individual Points", vPointObjectList)
+    # point groups
+    objNameList = [f'{collectionmeasured}::{groupmeasured}::Point Group', ]
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
+    # point cloud
+    objNameList = []
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
+    # objects
+    objNameList = []
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    sdk.SetCollectionObjectNameRefListArg("Objects", vObjectList)
+    # additional setting
+    sdk.SetBoolArg("Ignore Empty Arguments?", True)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
 def set_relationship_reporting_frame(relCol, relGrp, frmCol, frmName):
     """p679"""
     fname = 'Set Relationship Reporting Frame'
@@ -667,26 +790,26 @@ def set_relationship_reporting_frame(relCol, relGrp, frmCol, frmName):
     getResult(fname)
 
 
-def set_geom_relationship_criteria(relCol, relName, type):
+def set_geom_relationship_criteria(relCol, relName, criteriatype):
     """p680"""
     fname = 'Set Geom Relationship Criteria'
     fprint(fname)
     sdk.SetStep(fname)
     sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
-    if type == 'Flatness':
+    if criteriatype == 'Flatness':
         sdk.SetStringArg("Criteria", "Flatness")
         sdk.SetBoolArg("Show in Report", True)
         sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 0.1, True, 0.1)
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
-    elif type == 'Centroid Z':
+    elif criteriatype == 'Centroid Z':
         sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
         sdk.SetStringArg("Criteria", "Centroid Z")
         sdk.SetBoolArg("Show in Report", True)
         sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, 3.0)
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
-    elif type == 'Avg Dist Between':
+    elif criteriatype == 'Avg Dist Between':
         sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
         sdk.SetStringArg("Criteria", "Avg Dist Between")
         sdk.SetBoolArg("Show in Report", True)
@@ -694,7 +817,7 @@ def set_geom_relationship_criteria(relCol, relName, type):
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
     else:
-        print('incorrect type set')
+        print('incorrect criteria type set')
     sdk.ExecuteStep()
     getResult(fname)
 
