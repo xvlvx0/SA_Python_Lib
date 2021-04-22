@@ -393,6 +393,7 @@ def construct_objects_from_surface_faces_runtime_select(*args, **kwargs):
     sdk.SetBoolArg("Construct Points?", state[5])
     sdk.SetBoolArg("Construct Circles?", state[6])
     sdk.ExecuteStep()
+    getResult(fname)
 
 
 def set_or_construct_default_collection(colName):
@@ -569,6 +570,7 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
     sdk.SetStep(fname)
     sdk.SetCollectionObjectNameArg("Group Name", collection, group)
     sdk.ExecuteStep()
+    getResult(fname)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     dprint(f'\tptList: {ptList}')
@@ -648,6 +650,7 @@ def get_number_of_collections():
     fprint(fname)
     sdk.SetStep(fname)
     sdk.ExecuteStep()
+    getResult(fname)
     n = sdk.GetIntegerArg('Total Count', 0)
     dprint(f'n: {n}')
     if n[0]:
@@ -663,6 +666,7 @@ def get_ith_collection_name(i):
     sdk.SetStep(fname)
     sdk.SetIntegerArg('Collection Index', i)
     sdk.ExecuteStep()
+    getResult(fname)
     collection = sdk.GetCollectionNameArg('Resultant Name', '')
     dprint(f'\tCollection: {collection}')
     if collection[0]:
@@ -678,6 +682,7 @@ def get_point_coordinate(collection, group, pointname):
     sdk.SetStep(fname)
     sdk.SetPointNameArg("Point Name", collection, group, pointname)
     sdk.ExecuteStep()
+    getResult(fname)
     Vector = sdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
     dprint(f'\tVector: {Vector}')
     # xVal = sdk.GetDoubleArg("X Value", 0.0)
@@ -764,9 +769,8 @@ def best_fit_group_to_group(refCollection, refGroup,
     sdk.SetFilePathArg("File Path for CSV Text Report (requires Show Interface = TRUE)",
                        "", False)
     sdk.ExecuteStep()
-    boolean, result = sdk.GetMPStepResult(0)
-    dprint(f'{fname}: {boolean}, {result}')
-    return boolean
+    r = getResult2(fname)
+    return r
 
 
 def make_group_to_nominal_group_relationship(relCol, relName,
@@ -1028,7 +1032,7 @@ def configure_and_measure(instrumentCollection, instId,
     sdk.SetBoolArg("Wait for Completion", waitForCompletion)
     sdk.SetDoubleArg("Timeout in Seconds", timeoutInSecs)
     sdk.ExecuteStep()
-    result = sdk.GetMPStepResult(0)
+    result = getResult2(fname)
     return result
 
 
@@ -1041,8 +1045,12 @@ def compute_CTE_scale_factor(cte, parttemp):
     sdk.SetDoubleArg("Initial Temperature (F)", parttemp)
     sdk.SetDoubleArg("Final Temperature (F)", 68.000000)
     sdk.ExecuteStep()
+    getResult(fname)
     scaleFactor = sdk.GetDoubleArg("Scale Factor", 0.0)
-    return scaleFactor
+    if scaleFactor[0]:
+        return scaleFactor[1]
+    else:
+        return False
 
 
 def set_instrument_scale_absolute(collection, instid, scaleFactor):
