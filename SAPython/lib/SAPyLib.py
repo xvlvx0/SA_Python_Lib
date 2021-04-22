@@ -61,6 +61,7 @@ def getResult(fname):
     elif result == 1:
         # INPROGRESS = 1
         dprint('Execution: inprogress.')
+        return True
     elif result == 2:
         # DONESUCCESS = 2
         return True
@@ -78,9 +79,42 @@ def getResult(fname):
         raise IOError()
     elif result == 6:
         # UNKNOWN = 6
-        dprint('I have no clue!')
-        raise IOError()
+        raise SystemError('I have no clue!')
 
+def getResult2(fname):
+    """Get the methods execution result."""
+    # result = getIntRef()
+    boolean, result = sdk.GetMPStepResult(0)
+    dprint(f'{fname}: {boolean}, {result}')
+    if result == -1:
+        # SDKERROR = -1
+        raise SystemError('Execution raised: SDKERROR!')
+    elif result == 0:
+        # UNDONE = 0
+        dprint('Execution: undone.')
+        return True
+    elif result == 1:
+        # INPROGRESS = 1
+        dprint('Execution: inprogress.')
+        return True
+    elif result == 2:
+        # DONESUCCESS = 2
+        return True
+    elif result == 3:
+        # DONEFATALERROR = 3
+        dprint('Execution: FAILED!')
+        return False
+    elif result == 4:
+        # DONEMINORERROR = 4
+        dprint('Execution: FAILED - minor error!')
+        return True
+    elif result == 5:
+        # CURRENTTASK = 5
+        dprint('Execution: current task')
+        return True
+    elif result == 6:
+        # UNKNOWN = 6
+        raise SystemError('I have no clue!')
 
 class Point3D:
     def __init__(self, x, y, z):
@@ -89,11 +123,18 @@ class Point3D:
         self.Z = z
 
 class NamedPoint3D:
-    def __init__(self, n, x, y, z):
-        self.name = n
-        self.X = x
-        self.Y = y
-        self.Z = z
+    def __init__(self, point):
+        self.collection = point[0]
+        self.group = point[1]
+        self.name = point[2]
+        
+        # Get XYZ
+        pData = get_point_coordinate(self.collection, self.group, self.name)
+        dprint(f'pData: {pData}')
+        self.X = pData[0]
+        self.Y = pData[1]
+        self.Z = pData[2]
+
 
 class CTE:
     AluminumCTE_1DegF = 0.0000131
@@ -183,26 +224,36 @@ def ask_for_user_decision_extended(question, choices):
 # ###########################
 # Chapter 5 - View Control ##
 # ###########################
-def hide_objects(collection, objects, name):
+def hide_objects(collection, name, objtype):
     """p153"""
     fname = 'Hide Objects'
     fprint(fname)
     sdk.SetStep(fname)
-    objNameList = [f'{collection}::{objects}::{name}', ]
+    objNameList = [f'{collection}::{name}::{objtype}', ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     sdk.SetCollectionObjectNameRefListArg("Objects To Hide", vObjectList)
     sdk.ExecuteStep()
-    getResult(fname)
+    getResult2(fname)
 
 
-def show_hide_objects(ColName, ObjType, hide):
+def show_hide_objects(collection, objtype, hide):
     """p154"""
     # Hide = hide/True
     # Show = hide/False
-    fname = ''
+    fname = 'Show / Hide by Object Type'
     fprint(fname)
     sdk.SetStep(fname)
-
+    sdk.SetBoolArg("All Collections?", False)
+    sdk.SetCollectionNameArg("Specific Collection", collection)
+    # Available options: 
+    # "Any", "B-Spline", "Circle", "Cloud", "Scan Stripe Cloud", 
+    # "Cross Section Cloud", "Cone", "Cylinder", "Datum", "Ellipse", 
+    # "Frame", "Frame Set", "Line", "Paraboloid", "Perimeter", 
+    # "Plane", "Point Group", "Point Set", "Poly Surface", "Scan Stripe Mesh", 
+    # "Slot", "Sphere", "Surface", "Torus", "Vector Group", 
+    sdk.SetObjectTypeArg("Object Type To Show / Hide", objtype)
+    dprint(f'\t{collection}::{objtype} Hide? {hide}')
+    sdk.SetBoolArg("Hide? (Show = FALSE)", hide)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -219,14 +270,15 @@ def show_objects(collection, objects, name):
     getResult(fname)
 
 
-def show_hide_callout_view(CalloutName, show):
+def show_hide_callout_view(collection, calloutname, show):
     """p159"""
     # Show = show/True
     # Hide = show/False
-    fname = ''
+    fname = 'Show / Hide Callout View'
     fprint(fname)
     sdk.SetStep(fname)
-
+    sdk.SetCollectionObjectNameArg("Callout View To Show", collection, calloutname)
+    sdk.SetBoolArg("Show Callout View?", show)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -314,7 +366,7 @@ def construct_objects_from_surface_faces_runtime_select(*args, **kwargs):
     if 'facetype' in kwargs:
         facetype = kwargs['facetype']
         if not facetype:
-            print('No facetype selected!')
+            dprint('\tNo facetype selected!')
             sys.exit(1)
     # Set correct states
     state = [False, False, False, False, False, False, False]
@@ -440,32 +492,53 @@ def construct_frame_known_origin_object_direction_object_direction(
     getResult(fname)
 
 
-def create_relationship_callout():
+def create_relationship_callout(collection, calloutname, relationshipcollection, relationshipname):
     """p363"""
-    fname = ''
+    fname = 'Create Relationship Callout'
     fprint(fname)
     sdk.SetStep(fname)
-    sdk.__temp__()
+    sdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
+    sdk.SetCollectionObjectNameArg("Relationship Name", relationshipcollection, relationshipname)
+    sdk.SetDoubleArg("View X Position", 0.100000)
+    sdk.SetDoubleArg("View Y Position", 0.100000)
+    stringList = []
+    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    sdk.SetEditTextArg("Additional Notes (blank for none)", vStringList)
     sdk.ExecuteStep()
     getResult(fname)
 
 
-def create_text_callout():
+def create_text_callout(collection, calloutname, text):
     """p365"""
-    fname = ''
+    fname = 'Create Text Callout'
     fprint(fname)
     sdk.SetStep(fname)
-    sdk.__temp__()
+    sdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
+    stringList = [text, ]
+    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    sdk.SetEditTextArg("Text", vStringList)
+    sdk.SetDoubleArg("View X Position", 0.100000)
+    sdk.SetDoubleArg("View Y Position", 0.150000)
+    sdk.SetPointNameArg("Callout Anchor Point (Optional)", "", "", "")
     sdk.ExecuteStep()
     getResult(fname)
 
 
-def set_default_callout_view_properties():
+def set_default_callout_view_properties(calloutname):
     """p372"""
-    fname = ''
+    fname = 'Set Default Callout View Properties'
     fprint(fname)
     sdk.SetStep(fname)
-    sdk.__temp__()
+    sdk.SetStringArg("Default Callout View Name", calloutname)
+    sdk.SetBoolArg("Lock View Point?", True)
+    sdk.SetBoolArg("Recall Working Frame?", True)
+    sdk.SetBoolArg("Recall Visible Layer?", True)
+    sdk.SetIntegerArg("Callout Leader Thickness", 2)
+    sdk.SetColorArg("Callout Leader Color", 128, 128, 128)
+    sdk.SetIntegerArg("Callout Border Thickness", 2)
+    sdk.SetColorArg("Callout Border Color", 0, 0, 255)
+    sdk.SetBoolArg("Divide Text with Lines?", False)
+    sdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -479,7 +552,7 @@ def make_a_point_name_runtime_select(txt):
     sdk.ExecuteStep()
     getResult(fname)
     point = sdk.GetPointNameArg("Resultant Point Name", '', '', '')
-    print(point)
+    dprint(f'\tPoint: {point}')
     if point[0]:
         sCol = point[1]
         sGrp = point[2]
@@ -498,11 +571,11 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
     sdk.ExecuteStep()
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
-    print(f'ptList: {ptList}')
+    dprint(f'\tptList: {ptList}')
     if ptList[0]:
-        print(f'ptList[1]: {ptList[1]}')
+        dprint(f'\tptList[1]: {ptList[1]}')
         points = ptList[1]
-        print(f'p: {points}')
+        dprint(f'\tp: {points}')
         newPtList = []
         for i in range(points.GetLength(0)):
             temp = points[i].split('::')
@@ -522,11 +595,11 @@ def make_a_point_name_ref_list_runtime_select(prompt):
     getResult(fname)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = sdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
-    print(f'ptList: {ptList}')
+    dprint(f'\tptList: {ptList}')
     if ptList[0]:
-        print(f'ptList[1]: {ptList[1]}')
+        dprint(f'\tptList[1]: {ptList[1]}')
         points = ptList[1]
-        print(f'p: {points}')
+        dprint(f'\tp: {points}')
         newPtList = []
         for i in range(points.GetLength(0)):
             temp = points[i].split('::')
@@ -553,9 +626,9 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     getResult(fname)
     userObjectList = System.Runtime.InteropServices.VariantWrapper([])
     objectList = sdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
-    print(f'objectList: {objectList}')
+    dprint(f'\tobjectList: {objectList}')
     if objectList[0]:
-        print(f'objectList[1]: {objectList[1]}')
+        dprint(f'\tobjectList[1]: {objectList[1]}')
         objects = objectList[1]
         objectsList = []
         for i in range(objects.GetLength(0)):
@@ -576,10 +649,11 @@ def get_number_of_collections():
     sdk.SetStep(fname)
     sdk.ExecuteStep()
     n = sdk.GetIntegerArg('Total Count', 0)
-    if not n:
-        return False
+    dprint(f'n: {n}')
+    if n[0]:
+        return n[1]
     else:
-        return n
+        return False
 
 
 def get_ith_collection_name(i):
@@ -590,11 +664,11 @@ def get_ith_collection_name(i):
     sdk.SetIntegerArg('Collection Index', i)
     sdk.ExecuteStep()
     collection = sdk.GetCollectionNameArg('Resultant Name', '')
-    print(f'Collection: {collection}')
-    if not collection:
-        return False
+    dprint(f'\tCollection: {collection}')
+    if collection[0]:
+        return collection[1]
     else:
-        return collection
+        return False
 
 
 def get_point_coordinate(collection, group, pointname):
@@ -605,7 +679,7 @@ def get_point_coordinate(collection, group, pointname):
     sdk.SetPointNameArg("Point Name", collection, group, pointname)
     sdk.ExecuteStep()
     Vector = sdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
-    print(f'Vector: {Vector}')
+    dprint(f'\tVector: {Vector}')
     # xVal = sdk.GetDoubleArg("X Value", 0.0)
     # yVal = sdk.GetDoubleArg("Y Value", 0.0)
     # zVal = sdk.GetDoubleArg("Z Value", 0.0)
@@ -636,10 +710,10 @@ def get_point_coordinate(collection, group, pointname):
 #     sGrp = sdk.GetStringArg("Group", '')
 #     sTarg = sdk.GetStringArg("Target", '')
 #     pointname = sdk.GetPointNameArg("Resulting Point Name", '', '', '')
-#     print(f'sCol: {sCol}')
-#     print(f'sGrp: {sGrp}')
-#     print(f'sTarg: {sTarg}')
-#     print(f'Pointname: {pointname}')
+#     dprint(f'sCol: {sCol}')
+#     dprint(f'sGrp: {sGrp}')
+#     dprint(f'sTarg: {sTarg}')
+#     dprint(f'Pointname: {pointname}')
 #     return (sCol, sGrp, sTarg, pointname)
 
 
@@ -796,28 +870,29 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
     fprint(fname)
     sdk.SetStep(fname)
     sdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    # Flatness
     if criteriatype == 'Flatness':
         sdk.SetStringArg("Criteria", "Flatness")
         sdk.SetBoolArg("Show in Report", True)
-        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 0.1, True, 0.1)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 0.1, True, -0.1)
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    # Centroid Z
     elif criteriatype == 'Centroid Z':
-        sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
         sdk.SetStringArg("Criteria", "Centroid Z")
         sdk.SetBoolArg("Show in Report", True)
-        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, 3.0)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, -3.0)
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    # Avg Distance Between
     elif criteriatype == 'Avg Dist Between':
-        sdk.SetCollectionObjectNameArg("Relationship Name", "", "")
         sdk.SetStringArg("Criteria", "Avg Dist Between")
         sdk.SetBoolArg("Show in Report", True)
-        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, 3.0)
+        sdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, -3.0)
         sdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         sdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
     else:
-        print('incorrect criteria type set')
+        dprint('\tincorrect criteria type set')
     sdk.ExecuteStep()
     getResult(fname)
 
@@ -884,8 +959,8 @@ def get_last_instrument_index(collection):
     getResult(fname)
     # instId = sdk.GetIntegerArg("Instrument ID", 0)
     ColInstID = sdk.GetColInstIdArg("Instrument ID", '', 0)
-    # print(f'\tinstId: {instId}')
-    print(f'\tColInstID: {ColInstID}')
+    # dprint(f'\tinstId: {instId}')
+    dprint(f'\tColInstID: {ColInstID}')
     return (ColInstID[1], ColInstID[2])
 
 
@@ -910,7 +985,7 @@ def add_new_instrument(instName):
     sdk.ExecuteStep()
     getResult(fname)
     ColInstID = sdk.GetColInstIdArg("Instrument Added (result)", '', 0)
-    print(f'\tColInstID: {ColInstID}')
+    dprint(f'\tColInstID: {ColInstID}')
     return ColInstID[1], ColInstID[2]
 
 
@@ -989,6 +1064,16 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
 # ##################################
 # Chapter 14 - Utility Operations ##
 # ##################################
+def delete_folder(foldername):
+    """p354"""
+    fname = 'Delete Folder'
+    fprint(fname)
+    sdk.SetStep(fname)
+    sdk.SetStringArg("Folder Path", foldername)
+    sdk.ExecuteStep()
+    getResult(fname)
+
+
 def  move_collection_to_folder(collection, folder):
     """p1055"""
     fname = 'Move Collection to Folder'
