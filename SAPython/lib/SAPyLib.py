@@ -21,7 +21,6 @@ import System
 import System.Reflection
 from System.Collections.Generic import List
 
-
 # SA SDK dll
 sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
@@ -56,8 +55,7 @@ def getResult(fname):
         raise SystemError('Execution raised: SDKERROR!')
     elif result == 0:
         # UNDONE = 0
-        dprint('Execution: undone.')
-        raise IOError()
+        raise IOError('Execution: undone.')
     elif result == 1:
         # INPROGRESS = 1
         dprint('Execution: inprogress.')
@@ -67,16 +65,14 @@ def getResult(fname):
         return True
     elif result == 3:
         # DONEFATALERROR = 3
-        dprint('Execution: FAILED!')
-        raise IOError()
+        raise IOError('Execution: FAILED!')
     elif result == 4:
         # DONEMINORERROR = 4
         dprint('Execution: FAILED - minor error!')
         return True
     elif result == 5:
         # CURRENTTASK = 5
-        dprint('Execution: current task')
-        raise IOError()
+        raise IOError('Execution: current task')
     elif result == 6:
         # UNKNOWN = 6
         raise SystemError('I have no clue!')
@@ -603,15 +599,14 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     dprint(f'\tptList: {ptList}')
+    dprint(f'\tptList[0]: {ptList[0]}')
+    dprint(f'\tptList[1]: {ptList[1]}')
+    dprint(f'Length of ptList: {ptList[1].GetLength(0)}')
     if ptList[0]:
-        dprint(f'\tptList[1]: {ptList[1]}')
-        points = ptList[1]
-        dprint(f'\tp: {points}')
-        newPtList = []
-        for i in range(points.GetLength(0)):
-            temp = points[i].split('::')
-            newPtList.append(temp)
-        return newPtList
+        points = []
+        for i in range(ptList[1].GetLength(0)):
+            points.append(ptList[1][i].split('::'))
+        return points
     else:
         return False
 
@@ -638,6 +633,7 @@ def make_a_point_name_ref_list_runtime_select(prompt):
         return newPtList
     else:
         return False
+
 
 def make_a_collection_name_runtime_select(txt):
     """p408"""
@@ -672,14 +668,14 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     userObjectList = System.Runtime.InteropServices.VariantWrapper([])
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
     dprint(f'\tobjectList: {objectList}')
+    dprint(f'\tobjectList[0]: {objectList[0]}')
+    dprint(f'\tobjectList[1]: {objectList[1]}')
+    dprint(f'\tLength objectList[1]: {objectList[1].GetLength(0)}')
     if objectList[0]:
-        dprint(f'\tobjectList[1]: {objectList[1]}')
-        objects = objectList[1]
-        objectsList = []
-        for i in range(objects.GetLength(0)):
-            temp = objects[i].split('::')
-            objectsList.append(temp)
-        return objectsList
+        objects = []
+        for i in range(objectList[1].GetLength(0)):
+            objects.append(objectList[1][i].split('::'))
+        return objects
     else:
         return False
 
@@ -718,6 +714,19 @@ def get_ith_collection_name(i):
         return False
 
 
+def set_vector_group_colorization_options_selected(collection, vectorgroup):
+    """p485"""
+    fname = 'Set Vector Group Colorization Options (Selected)'
+    fprint(fname)
+    NrkSdk.SetStep("Set Vector Group Colorization Options (Selected)")
+    vgNameList = [f'{collection}::{vectorgroup}', ]
+    vVectorGroupNameList = System.Runtime.InteropServices.VariantWrapper(vgNameList)
+    NrkSdk.SetCollectionVectorGroupNameRefListArg("Vector Groups to be Set", vVectorGroupNameList)
+    NrkSdk.SetColorizationOptionsArg("Colorization Options", "Continuous", "Blue", "Green", "Red", False, True, False, 100.0, 1, False, 0.1, False, False, True, False, 0.0, 0.0, 0.03, 0.0)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
 def get_point_coordinate(collection, group, pointname):
     """p489"""
     fname = 'Get Point Coordinate'
@@ -740,29 +749,47 @@ def get_point_coordinate(collection, group, pointname):
         return False
 
 
-# ########################################
-# --- NOT DIRECTLY NEEDED --- 
-# CAN BE DONE WITH NORMAL PYTHON FOR LOOP
-# ########################################
-# def get_ith_point_name_from_point_name_ref_list_iterator(ptList, i):
-#     """p498"""
-#     fname = 'Get i-th Point Name From Point Name Ref List (Iterator)'
-#     fprint(fname)
-#     NrkSdk.SetStep(fname)
-#     vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptList)
-#     NrkSdk.SetPointNameRefListArg("Point Name List", vPointObjectList)
-#     NrkSdk.SetIntegerArg("Point Name Index", i+1)
-#     NrkSdk.ExecuteStep()
-#     getResult(fname)
-#     sCol = NrkSdk.GetStringArg("Collection", '')
-#     sGrp = NrkSdk.GetStringArg("Group", '')
-#     sTarg = NrkSdk.GetStringArg("Target", '')
-#     pointname = NrkSdk.GetPointNameArg("Resulting Point Name", '', '', '')
-#     dprint(f'sCol: {sCol}')
-#     dprint(f'sGrp: {sGrp}')
-#     dprint(f'sTarg: {sTarg}')
-#     dprint(f'Pointname: {pointname}')
-#     return (sCol, sGrp, sTarg, pointname)
+def set_vector_group_display_attributes(magni, blotch):
+    """p532"""
+    fname = 'Set Vector Group Display Attributes'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetBoolArg("Draw Arrowheads?", False)
+    NrkSdk.SetBoolArg("Indicate Values?", True)
+    NrkSdk.SetDoubleArg("Vector Magnification", magni)
+    NrkSdk.SetIntegerArg("Vector Width", 1)
+    NrkSdk.SetBoolArg("Draw Color Blotches?", False)
+    NrkSdk.SetDoubleArg("Blotch Size", blotch)
+    NrkSdk.SetBoolArg("Show Out of Tolerance Only?", False)
+    NrkSdk.SetBoolArg("Show Color Bar in View?", True)
+    NrkSdk.SetBoolArg("Show Color Bar Percentages?", False)
+    NrkSdk.SetBoolArg("Show Color Bar Fractions?", False)
+    # Available options: 
+    # "Deviation", "Sigma Rule", "Custom", 
+    NrkSdk.SetSaturationLimitTypeArg("High Saturation Limit Type", "Deviation")
+    NrkSdk.SetDoubleArg("High Saturation Limit", 10.000000)
+    # Available options: 
+    # "Deviation", "Sigma Rule", "Custom", 
+    NrkSdk.SetSaturationLimitTypeArg("Low Saturation Limit Type", "Deviation")
+    NrkSdk.SetDoubleArg("Low Saturation Limit", -10.000000)
+    NrkSdk.SetDoubleArg("High Tolerance", 0.100000)
+    NrkSdk.SetDoubleArg("Low Tolerance", -0.100000)
+    # Available options: 
+    # "Single Color", "Continuous", "Toleranced (Continuous)", 
+    # "Toleranced (Go / No-Go)", "Toleranced (Go / No-Go With Warning)", "Discrete Colors", 
+    NrkSdk.SetColorRangeMethodArg("Color Ranging Method", "Toleranced (Go / No-Go)")
+    # Available options: 
+    # "Red", "Green", "Blue", 
+    NrkSdk.SetBaseColorTypeArg("Base High Color", "Blue")
+    # Available options: 
+    # "Green", "Gray", "Red", "Blue", 
+    NrkSdk.SetBaseMidColorTypeArg("Base Mid Color", "Green")
+    # Available options: 
+    # "Red", "Green", "Blue", 
+    NrkSdk.SetBaseColorTypeArg("Base Low Color", "Red")
+    NrkSdk.SetBoolArg("Draw Tubes?", True)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
 
 
 def fit_geometry_to_point_group(geomType,
@@ -944,11 +971,27 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
     getResult(fname)
 
 
-def set_relationship_auto_vectors_fit_avf():
-    """p691"""
-    fname = 'Set Relationship Desired Meas Count'
+def set_geom_relationship_auto_vectors_nominal_avn(collection, relationshipname, bool):
+    """p690"""
+    fname = 'Set Geom Relationship Auto Vectors Nominal (AVN)'
     fprint(fname)
     NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
+    # NrkSdk.NOT_SUPPORTED("Points Type")  # <-------------- UNSUPPORTED, ERROR ON EXECUTION IF LEFT OUT!!!!
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_relationship_auto_vectors_fit_avf(collection, relationshipname, bool):
+    """p691"""
+    fname = 'Set Relationship Auto Vectors Fit (AVF)'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
 
 
 def set_relationship_desired_meas_count(relCol, relName, count):
@@ -1012,8 +1055,8 @@ def get_last_instrument_index(collection):
     NrkSdk.ExecuteStep()
     getResult(fname)
     # instId = NrkSdk.GetIntegerArg("Instrument ID", 0)
-    ColInstID = NrkSdk.GetColInstIdArg("Instrument ID", '', 0)
     # dprint(f'\tinstId: {instId}')
+    ColInstID = NrkSdk.GetColInstIdArg("Instrument ID", '', 0)
     dprint(f'\tColInstID: {ColInstID}')
     return (ColInstID[1], ColInstID[2])
 
@@ -1123,7 +1166,7 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
 # Chapter 14 - Utility Operations ##
 # ##################################
 def delete_folder(foldername):
-    """p354"""
+    """p1054"""
     fname = 'Delete Folder'
     fprint(fname)
     NrkSdk.SetStep(fname)
@@ -1145,7 +1188,7 @@ def  move_collection_to_folder(collection, folder):
 
 def get_folders_by_wildcard(search):
     """p1057"""
-    # .......Doesn't return anything......
+    # ----- No return variable is received, needs investigation -----
     fname = 'Get Folders by Wildcard'
     fprint(fname)
     NrkSdk.SetStep(fname)
@@ -1156,15 +1199,38 @@ def get_folders_by_wildcard(search):
     stringList = System.Runtime.InteropServices.VariantWrapper([])
     vStringList = NrkSdk.GetStringRefListArg("Folder List", stringList)
     dprint(f'\tvStringlist: {vStringList}')
-    if not vStringList[0]:
-        dprint(f'\tvStringList[1]: {vStringList[1]}')
-        folders = vStringList[1]
-        dprint(f'\tf: {folders}')
-        newFolderList = []
-        for i in range(folders.GetLength(0)):
-            temp = folders[i]
-            newFolderList.append(temp)
-        return newFolderList
+    dprint(f'\tvStringList[0]: {vStringList[0]}')
+    dprint(f'\tvStringList[1]: {vStringList[1]}')
+    dprint(f'\tLength vStringList[1]: {vStringList[1].GetLength(0)}')
+    if vStringList[0]:
+        folders = []
+        for i in range(vStringList[1].GetLength(0)):
+            folders.append(vStringList[1][i])
+        return folders
+    else:
+        return False
+
+
+def get_folder_collections(folder):
+    """p1060"""
+    # ----- No return variable is received, needs investigation -----
+    fname = 'Get Folder Collections'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetStringArg("Folder Path", folder)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    vStringList = NrkSdk.GetStringRefListArg("Collection List", stringList)
+    dprint(f'\tvStringlist: {vStringList}')
+    dprint(f'\tvStringList[0]: {vStringList[0]}')
+    dprint(f'\tvStringList[1]: {vStringList[1]}')
+    dprint(f'\tvStringList[1] length: {vStringList[1].GetLength(0)}')
+    if vStringList[0]:
+        folders = []
+        for i in range(vStringList[1].GetLength(0)):
+            folders.append(vStringList[1][i])
+        return folders
     else:
         return False
 
