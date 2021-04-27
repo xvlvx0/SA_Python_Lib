@@ -45,7 +45,7 @@ def fprint(val):
     if DEBUG:
         print(f'\nFUNCTION: {val}')
 
-def getResult(fname):
+def getResult_(fname):
     """Get the methods execution result."""
     # result = getIntRef()
     boolean, result = NrkSdk.GetMPStepResult(0)
@@ -77,7 +77,7 @@ def getResult(fname):
         # UNKNOWN = 6
         raise SystemError('I have no clue!')
 
-def getResult2(fname):
+def getResult(fname):
     """Get the methods execution result."""
     # result = getIntRef()
     boolean, result = NrkSdk.GetMPStepResult(0)
@@ -457,6 +457,21 @@ def construct_a_point(collection, group, name, x, y, z):
     getResult(fname)
 
 
+def construct_point_at_intersection_of_plane_and_line(collectionplane, plane,
+                                                      collectionline, line,
+                                                      collectionpoint, grouppoint, point
+                                                      ):
+    """p218"""
+    fname = 'Construct Point at Intersection of Plane and Line'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Plane Name", collectionplane, plane)
+    NrkSdk.SetCollectionObjectNameArg("Line Name", collectionline, line)
+    NrkSdk.SetPointNameArg("Resulting Point Name", collectionpoint, grouppoint, point)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
 def construct_line_2_points(name, fCol, fGrp, fTarg, sCol, sGrp, sTarg):
     """p262"""
     fname = 'Construct Line 2 Points'
@@ -465,6 +480,19 @@ def construct_line_2_points(name, fCol, fGrp, fTarg, sCol, sGrp, sTarg):
     NrkSdk.SetCollectionObjectNameArg("Line Name", "", name)
     NrkSdk.SetPointNameArg("First Point", fCol, fGrp, fTarg)
     NrkSdk.SetPointNameArg("Second Point", sCol, sGrp, sTarg)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
+def construct_plane(planeCol, planeName):
+    """p271"""
+    fname = 'Construct Plane'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Plane Name", planeCol, planeName)
+    NrkSdk.SetVectorArg("Plane Center (in working coordinates)", 0.0, 0.0, 0.0)
+    NrkSdk.SetVectorArg("Plane Normal (in working coordinates)", 0.0, 0.0, 1.0)
+    NrkSdk.SetDoubleArg("Plane Edge Dimension", 0.0)
     NrkSdk.ExecuteStep()
     getResult(fname)
 
@@ -497,13 +525,13 @@ def construct_frame_known_origin_object_direction_object_direction(
     getResult(fname)
 
 
-def create_relationship_callout(collection, calloutname, relationshipcollection, relationshipname, *args, **kwargs):
+def create_relationship_callout(collection, calloutname, relCol, relName, *args, **kwargs):
     """p363"""
     fname = 'Create Relationship Callout'
     fprint(fname)
     NrkSdk.SetStep(fname)
     NrkSdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relationshipcollection, relationshipname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     # get X position
     if 'xpos' in kwargs:
         xpos = kwargs['xpos']
@@ -734,7 +762,8 @@ def get_point_coordinate(collection, group, pointname):
     NrkSdk.SetStep(fname)
     NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    if not getResult(fname):
+        return False
     Vector = NrkSdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
     dprint(f'\tVector: {Vector}')
     # xVal = NrkSdk.GetDoubleArg("X Value", 0.0)
@@ -747,6 +776,28 @@ def get_point_coordinate(collection, group, pointname):
         return (xVal, yVal, zVal)
     else:
         return False
+
+
+def get_point_to_point_distance(p1col, p1grp, p1name, p2col, p2grp, p2name):
+    """p495"""
+    fname = 'Get Point To Point Distance'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetPointNameArg("First Point", p1col, p1grp, p1name)
+    NrkSdk.SetPointNameArg("Second Point", p2col, p2grp, p2name)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+    # xVal, yVal, zValNrkSdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
+    xval = NrkSdk.GetDoubleArg("X Value", 0.0)
+    yval = NrkSdk.GetDoubleArg("Y Value", 0.0)
+    zval = NrkSdk.GetDoubleArg("Z Value", 0.0)
+    mag = NrkSdk.GetDoubleArg("Magnitude", 0.0)
+    returndict = {'xval': xval[1],
+                  'yval': yval[1],
+                  'zval': zval[1],
+                  'mag': mag[1],
+                  }
+    return returndict
 
 
 def set_vector_group_display_attributes(magni, blotch):
@@ -843,6 +894,24 @@ def best_fit_group_to_group(refCollection, refGroup,
     return r
 
 
+def make_point_to_point_relationship(relCol, relName, p1col, p1grp, p1, p2col, p2grp, p2):
+    """p632"""
+    fname = 'Make Point to Point Relationship'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    NrkSdk.SetPointNameArg("First Point Name", p1col, p1grp, p1)
+    NrkSdk.SetPointNameArg("Second Point Name", p2col, p2grp, p2)
+    NrkSdk.SetToleranceVectorOptionsArg("Tolerance",
+                                        False, 0.0, False, 0.0, False, 0.0, False, 0.0,
+                                        False, 0.0, False, 0.0, False, 0.0, False, 0.0)
+    NrkSdk.SetToleranceVectorOptionsArg("Constraint",
+                                        True, 0.0, True, 0.0, True, 0.0, False, 0.0,
+                                        True, 0.0, True, 0.0, True, 0.0, False, 0.0)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
 def make_group_to_nominal_group_relationship(relCol, relName,
                                              nomCol, nomGrp,
                                              meaCol, meaGrp,
@@ -897,14 +966,43 @@ def make_geometry_fit_and_compare_to_nominal_relationship(relatCol, relatName,
     getResult(fname)
 
 
-def set_relationship_associated_data(collection, group, collectionmeasured, groupmeasured):
+def get_geom_relationship_criteria(relCol, relName, criteria):
+    """p660"""
+    fname = 'Get Geom Relationship Criteria'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    NrkSdk.SetStringArg("Criteria", criteria)
+    NrkSdk.ExecuteStep()
+    if not getResult(fname):
+        return False
+    nominal = NrkSdk.GetDoubleArg("Nominal", 0.0)
+    measured = NrkSdk.GetDoubleArg("Measured", 0.0)
+    delta = NrkSdk.GetDoubleArg("Delta", 0.0)
+    lowtol = NrkSdk.GetDoubleArg("Low Tolerance", 0.0)
+    hightol = NrkSdk.GetDoubleArg("High Tolerance", 0.0)
+    deltaweight = NrkSdk.GetDoubleArg("Optimization: Delta Weight", 0.0)
+    outoftolweight = NrkSdk.GetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    dict_return = {'nominal': nominal[1],
+                   'measured': measured[1],
+                   'delta': delta[1],
+                   'lowtol': lowtol[1],
+                   'hightol': hightol[1],
+                   'deltaweight': deltaweight[1],
+                   'outoftolweight': outoftolweight[1],
+                   }
+    # print(dict_return)
+    return dict_return
+
+
+def set_relationship_associated_data(relCol, group, collectionmeasured, groupmeasured):
     """p664"""
     # The function only excepts 'groups' as an input.
     # Individual points, point clouds and objects aren't support for now.
     fname = 'Set Relationship Associated Data'
     fprint(fname)
     NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, group)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, group)
     # individual points
     ptNameList = []
     vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
@@ -965,30 +1063,37 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
         NrkSdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 3.0, True, -3.0)
         NrkSdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         NrkSdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
+    # Length
+    elif criteriatype == 'Length':
+        NrkSdk.SetStringArg("Criteria", "Length")
+        NrkSdk.SetBoolArg("Show in Report", True)
+        NrkSdk.SetToleranceScalarOptionsArg("Tolerance Options", True, 0.05, True, -0.05)
+        NrkSdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
+        NrkSdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
     else:
-        dprint('\tincorrect criteria type set')
+        dprint('\tIncorrect criteria type set!')
     NrkSdk.ExecuteStep()
     getResult(fname)
 
 
-def set_geom_relationship_auto_vectors_nominal_avn(collection, relationshipname, bool):
+def set_geom_relationship_auto_vectors_nominal_avn(relCol, relName, bool):
     """p690"""
     fname = 'Set Geom Relationship Auto Vectors Nominal (AVN)'
     fprint(fname)
     NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
     # NrkSdk.NOT_SUPPORTED("Points Type")  # <-------------- UNSUPPORTED, ERROR ON EXECUTION IF LEFT OUT!!!!
     NrkSdk.ExecuteStep()
     getResult(fname)
 
 
-def set_relationship_auto_vectors_fit_avf(collection, relationshipname, bool):
+def set_relationship_auto_vectors_fit_avf(relCol, relName, bool):
     """p691"""
     fname = 'Set Relationship Auto Vectors Fit (AVF)'
     fprint(fname)
     NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
     NrkSdk.ExecuteStep()
     getResult(fname)
@@ -1001,6 +1106,19 @@ def set_relationship_desired_meas_count(relCol, relName, count):
     NrkSdk.SetStep(fname)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetIntegerArg("Desired Measurement Count", count)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_relationship_tolerance_vector_type(relCol, relName):
+    """p697"""
+    fname = 'Set Relationship Tolerance (Vector Type)'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    NrkSdk.SetToleranceVectorOptionsArg("Vector Tolerance",
+                                        False, 0.000000, False, 0.000000, False, 0.000000, True, 1.0,
+                                        False, 0.000000, False, 0.000000, False, 0.000000, True, 0.0)
     NrkSdk.ExecuteStep()
     getResult(fname)
 
@@ -1175,7 +1293,7 @@ def delete_folder(foldername):
     getResult(fname)
 
 
-def  move_collection_to_folder(collection, folder):
+def move_collection_to_folder(collection, folder):
     """p1055"""
     fname = 'Move Collection to Folder'
     fprint(fname)
