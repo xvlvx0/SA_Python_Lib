@@ -19,7 +19,6 @@ clr.AddReference("System")
 clr.AddReference("System.Reflection")
 import System
 import System.Reflection
-from System.Collections.Generic import List
 
 # SA SDK dll
 sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
@@ -137,7 +136,6 @@ class NamedPoint3D:
         self.Y = pData[1]
         self.Z = pData[2]
 
-
 class CTE:
     AluminumCTE_1DegF = 0.0000131
     SteelCTE_1DegF = 0.0000065
@@ -147,6 +145,27 @@ class CTE:
 # ##############################
 # Chapter 2 - File Operations ##
 # ##############################
+def find_files_in_directory(directory, searchPattern):
+    """p27"""
+    fname = 'Find Files in Directory'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetStringArg("Directory", directory)
+    NrkSdk.SetStringArg("File Name Pattern", searchPattern)
+    NrkSdk.SetBoolArg("Recursive?", False)
+    NrkSdk.ExecuteStep()
+    results = getResult(fname)
+    if not results:
+        return False
+    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    vStringList = NrkSdk.GetStringRefListArg("Files", stringList)
+    if vStringList[0]:
+        files = []
+        for i in range(vStringList[1].GetLength(0)):
+            files.append(vStringList[1][i])
+        return files
+    else:
+        return False
 
 
 # ######################################
@@ -211,7 +230,6 @@ def ask_for_user_decision_extended(question, choices):
     vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
     NrkSdk.SetEditTextArg("Question or Statement", vStringList)
     NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
-    #NrkSdk.NOT_SUPPORTED("Button Answers", choices)
     NrkSdk.ExecuteStep()
     getResult(fname)
     selected_answer = 0
@@ -235,7 +253,7 @@ def hide_objects(collection, name, objtype):
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects To Hide", vObjectList)
     NrkSdk.ExecuteStep()
-    getResult2(fname)
+    getResult(fname)
 
 
 def show_hide_objects(collection, objtype, hide):
@@ -626,10 +644,6 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
     getResult(fname)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
-    dprint(f'\tptList: {ptList}')
-    dprint(f'\tptList[0]: {ptList[0]}')
-    dprint(f'\tptList[1]: {ptList[1]}')
-    dprint(f'Length of ptList: {ptList[1].GetLength(0)}')
     if ptList[0]:
         points = []
         for i in range(ptList[1].GetLength(0)):
@@ -649,16 +663,11 @@ def make_a_point_name_ref_list_runtime_select(prompt):
     getResult(fname)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
-    dprint(f'\tptList: {ptList}')
     if ptList[0]:
-        dprint(f'\tptList[1]: {ptList[1]}')
-        points = ptList[1]
-        dprint(f'\tp: {points}')
-        newPtList = []
-        for i in range(points.GetLength(0)):
-            temp = points[i].split('::')
-            newPtList.append(temp)
-        return newPtList
+        points = []
+        for i in range(ptList[1].GetLength(0)):
+            points.append(ptList[1][i].split('::'))
+        return points
     else:
         return False
 
@@ -890,7 +899,7 @@ def best_fit_group_to_group(refCollection, refGroup,
     NrkSdk.SetFilePathArg("File Path for CSV Text Report (requires Show Interface = TRUE)",
                        "", False)
     NrkSdk.ExecuteStep()
-    r = getResult2(fname)
+    r = getResult(fname)
     return r
 
 
@@ -1243,7 +1252,7 @@ def configure_and_measure(instrumentCollection, instId,
     NrkSdk.SetBoolArg("Wait for Completion", waitForCompletion)
     NrkSdk.SetDoubleArg("Timeout in Seconds", timeoutInSecs)
     NrkSdk.ExecuteStep()
-    result = getResult2(fname)
+    result = getResult(fname)
     return result
 
 
@@ -1306,7 +1315,6 @@ def move_collection_to_folder(collection, folder):
 
 def get_folders_by_wildcard(search):
     """p1057"""
-    # ----- No return variable is received, needs investigation -----
     fname = 'Get Folders by Wildcard'
     fprint(fname)
     NrkSdk.SetStep(fname)
@@ -1316,10 +1324,6 @@ def get_folders_by_wildcard(search):
     getResult(fname)
     stringList = System.Runtime.InteropServices.VariantWrapper([])
     vStringList = NrkSdk.GetStringRefListArg("Folder List", stringList)
-    dprint(f'\tvStringlist: {vStringList}')
-    dprint(f'\tvStringList[0]: {vStringList[0]}')
-    dprint(f'\tvStringList[1]: {vStringList[1]}')
-    dprint(f'\tLength vStringList[1]: {vStringList[1].GetLength(0)}')
     if vStringList[0]:
         folders = []
         for i in range(vStringList[1].GetLength(0)):
@@ -1331,7 +1335,6 @@ def get_folders_by_wildcard(search):
 
 def get_folder_collections(folder):
     """p1060"""
-    # ----- No return variable is received, needs investigation -----
     fname = 'Get Folder Collections'
     fprint(fname)
     NrkSdk.SetStep(fname)
@@ -1340,10 +1343,6 @@ def get_folder_collections(folder):
     getResult(fname)
     stringList = System.Runtime.InteropServices.VariantWrapper([])
     vStringList = NrkSdk.GetStringRefListArg("Collection List", stringList)
-    dprint(f'\tvStringlist: {vStringList}')
-    dprint(f'\tvStringList[0]: {vStringList[0]}')
-    dprint(f'\tvStringList[1]: {vStringList[1]}')
-    dprint(f'\tvStringList[1] length: {vStringList[1].GetLength(0)}')
     if vStringList[0]:
         folders = []
         for i in range(vStringList[1].GetLength(0)):
