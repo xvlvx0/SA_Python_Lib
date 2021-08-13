@@ -3,7 +3,7 @@ SAPyLib = Spatial Analyzer Python .NET library
 
 This library provides the communication layer to the SA SDK .NET dll.
 Author: L. Ververgaard
-Date: 2020-04-08
+Date: 2021-06-26
 Version: 1
 """
 import sys
@@ -78,7 +78,6 @@ def getResult_(fname):
 
 def getResult(fname):
     """Get the methods execution result."""
-    # result = getIntRef()
     boolean, result = NrkSdk.GetMPStepResult(0)
     dprint(f'{fname}: {boolean}, {result}')
     if result == -1:
@@ -135,6 +134,7 @@ class NamedPoint3D:
         self.X = pData[0]
         self.Y = pData[1]
         self.Z = pData[2]
+
 
 class CTE:
     AluminumCTE_1DegF = 0.0000131
@@ -543,13 +543,13 @@ def construct_frame_known_origin_object_direction_object_direction(
     getResult(fname)
 
 
-def create_relationship_callout(collection, calloutname, relCol, relName, *args, **kwargs):
+def create_relationship_callout(collection, calloutname, relationshipcollection, relationshipname, *args, **kwargs):
     """p363"""
     fname = 'Create Relationship Callout'
     fprint(fname)
     NrkSdk.SetStep(fname)
     NrkSdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relationshipcollection, relationshipname)
     # get X position
     if 'xpos' in kwargs:
         xpos = kwargs['xpos']
@@ -751,7 +751,7 @@ def get_ith_collection_name(i):
         return False
 
 
-def set_vector_group_colorization_options_selected(collection, vectorgroup):
+def set_vector_group_colorization_options_selected(collection, vectorgroup, *args, **kwargs):
     """p485"""
     fname = 'Set Vector Group Colorization Options (Selected)'
     fprint(fname)
@@ -759,7 +759,27 @@ def set_vector_group_colorization_options_selected(collection, vectorgroup):
     vgNameList = [f'{collection}::{vectorgroup}', ]
     vVectorGroupNameList = System.Runtime.InteropServices.VariantWrapper(vgNameList)
     NrkSdk.SetCollectionVectorGroupNameRefListArg("Vector Groups to be Set", vVectorGroupNameList)
-    NrkSdk.SetColorizationOptionsArg("Colorization Options", "Continuous", "Blue", "Green", "Red", False, True, False, 100.0, 1, False, 0.1, False, False, True, False, 0.0, 0.0, 0.03, 0.0)
+    NrkSdk.SetColorizationOptionsArg("Colorization Options",
+                                     kwargs['color_profile'],
+                                     kwargs['base_high_color'],
+                                     kwargs['base_mid_color'],
+                                     kwargs['base_low_color'],
+                                     kwargs['tubes'],
+                                     kwargs['arrows'],
+                                     kwargs['show_labels'],
+                                     kwargs['vector_magnification'],
+                                     kwargs['vector_width'],
+                                     kwargs['blotches'],
+                                     kwargs['blotch_size'],
+                                     kwargs['show_out_of_tol'],
+                                     kwargs['color_bar'],
+                                     kwargs['show_percentages'],
+                                     kwargs['show_fractions'],
+                                     kwargs['x1'],
+                                     kwargs['x2'],
+                                     kwargs['high_tol'],
+                                     kwargs['low_tol'],
+                                     )
     NrkSdk.ExecuteStep()
     getResult(fname)
 
@@ -775,9 +795,6 @@ def get_point_coordinate(collection, group, pointname):
         return False
     Vector = NrkSdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
     dprint(f'\tVector: {Vector}')
-    # xVal = NrkSdk.GetDoubleArg("X Value", 0.0)
-    # yVal = NrkSdk.GetDoubleArg("Y Value", 0.0)
-    # zVal = NrkSdk.GetDoubleArg("Z Value", 0.0)
     if Vector[0]:
         xVal = Vector[1]
         yVal = Vector[2]
@@ -809,14 +826,24 @@ def get_point_to_point_distance(p1col, p1grp, p1name, p2col, p2grp, p2name):
     return returndict
 
 
-def set_vector_group_display_attributes(magni, blotch):
+def set_default_colorization_options():
+    """p531"""
+    fname = 'Set Default Colorization Options'
+    fprint(fname)
+    NrkSdk.SetStep(fname)
+    NrkSdk.SetColorizationOptionsArg("Colorization Options", "Continuous", "Blue", "Green", "Red", False, True, False, 100.0, 1, False, 0.1, False, False, True, False, 0.5, -0.5, 0.03, -0.5)
+    NrkSdk.ExecuteStep()
+    getResult(fname)
+
+
+def set_vector_group_display_attributes(magnification, blotch, tolerance):
     """p532"""
     fname = 'Set Vector Group Display Attributes'
     fprint(fname)
     NrkSdk.SetStep(fname)
     NrkSdk.SetBoolArg("Draw Arrowheads?", False)
-    NrkSdk.SetBoolArg("Indicate Values?", True)
-    NrkSdk.SetDoubleArg("Vector Magnification", magni)
+    NrkSdk.SetBoolArg("Indicate Values?", False)
+    NrkSdk.SetDoubleArg("Vector Magnification", magnification)
     NrkSdk.SetIntegerArg("Vector Width", 1)
     NrkSdk.SetBoolArg("Draw Color Blotches?", False)
     NrkSdk.SetDoubleArg("Blotch Size", blotch)
@@ -832,8 +859,8 @@ def set_vector_group_display_attributes(magni, blotch):
     # "Deviation", "Sigma Rule", "Custom", 
     NrkSdk.SetSaturationLimitTypeArg("Low Saturation Limit Type", "Deviation")
     NrkSdk.SetDoubleArg("Low Saturation Limit", -10.000000)
-    NrkSdk.SetDoubleArg("High Tolerance", 0.100000)
-    NrkSdk.SetDoubleArg("Low Tolerance", -0.100000)
+    NrkSdk.SetDoubleArg("High Tolerance", tolerance)
+    NrkSdk.SetDoubleArg("Low Tolerance", (tolerance * -1))
     # Available options: 
     # "Single Color", "Continuous", "Toleranced (Continuous)", 
     # "Toleranced (Go / No-Go)", "Toleranced (Go / No-Go With Warning)", "Discrete Colors", 
@@ -1085,24 +1112,23 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
     getResult(fname)
 
 
-def set_geom_relationship_auto_vectors_nominal_avn(relCol, relName, bool):
+def set_geom_relationship_auto_vectors_nominal_avn(collection, relationshipname, bool):
     """p690"""
     fname = 'Set Geom Relationship Auto Vectors Nominal (AVN)'
     fprint(fname)
     NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
-    NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
-    # NrkSdk.NOT_SUPPORTED("Points Type")  # <-------------- UNSUPPORTED, ERROR ON EXECUTION IF LEFT OUT!!!!
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.SetBoolArg("Create Auto Vectors AVN", bool)
     NrkSdk.ExecuteStep()
     getResult(fname)
 
 
-def set_relationship_auto_vectors_fit_avf(relCol, relName, bool):
+def set_relationship_auto_vectors_fit_avf(collection, relationshipname, bool):
     """p691"""
     fname = 'Set Relationship Auto Vectors Fit (AVF)'
     fprint(fname)
     NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
     NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
     NrkSdk.ExecuteStep()
     getResult(fname)
@@ -1135,13 +1161,26 @@ def set_relationship_tolerance_vector_type(relCol, relName):
 # ###################################
 # Chapter 9 - Reporting Operations ##
 # ###################################
-def set_relationship_report_options(relCol, relGrp):
+def set_relationship_report_options(relCol, relGrp, *args, **kwargs):
     """p770"""
     fname = 'Set Relationship Report Options'
     fprint(fname)
     NrkSdk.SetStep(fname)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relGrp)
-    NrkSdk.SetPointDeltaReportOptionsArg("Report Options", "Cartesian", "Single", True, True, True, True, True, True, False, True, True, True)
+    NrkSdk.SetPointDeltaReportOptionsArg("Report Options",
+                                         kwargs['coord_system'],
+                                         kwargs['record_format'],
+                                         kwargs['a'],
+                                         kwargs['b'],
+                                         kwargs['c'],
+                                         kwargs['d'],
+                                         kwargs['e'],
+                                         kwargs['f'],
+                                         kwargs['summary'],
+                                         kwargs['h'],
+                                         kwargs['i'],
+                                         kwargs['j'],
+                                         )
     NrkSdk.ExecuteStep()
     getResult(fname)
 
