@@ -3,22 +3,25 @@ SAPyLib = Spatial Analyzer Python .NET library
 
 This library provides the communication layer to the SA SDK .NET dll.
 Author: L. Ververgaard
-Date: 2021-06-26
-Version: 1
+Date: 2021-08-15
+Version: 2
 """
 import sys
 import os
+import logging
 import clr
+
+clr.AddReference("System")
+clr.AddReference("System.Reflection")
+import System
+import System.Reflection
+
 
 basepath = r"C:\Analyzer Data\Scripts\SAPython"
 
 # Set the debugging reporting value
 DEBUG = True
 
-clr.AddReference("System")
-clr.AddReference("System.Reflection")
-import System
-import System.Reflection
 
 # SA SDK dll
 sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
@@ -28,86 +31,49 @@ NrkSdk = System.Activator.CreateInstance(sa_sdk_class_type)
 SAConnected = NrkSdk.Connect("127.0.0.1")
 if not SAConnected:
     raise IOError("Connection to SA SDK failed!")
-    sys.exit(1)
+
+log = logging.getLogger(__name__)
 
 
 # ###############
 # Base methods ##
 # ###############
-def dprint(val):
-    """Print a debugging value."""
-    if DEBUG:
-        print(f"\tDEBUG: {val}")
-
-
-def fprint(val):
-    """Print the function name."""
-    if DEBUG:
-        print(f"\nFUNCTION: {val}")
-
-
-def getResult_(fname):
-    """Get the methods execution result."""
-    # result = getIntRef()
+def getResult_Bare(func_name):
+    """Get the methods execution result without processing."""
     boolean, result = NrkSdk.GetMPStepResult(0)
-    dprint(f"{fname}: {boolean}, {result}")
+    log.debug(f"{func_name}: {boolean}, {result}")
+    return boolean, result
+
+
+def getResult(func_name):
+    """Get the methods execution result and process the result."""
+    boolean, result = NrkSdk.GetMPStepResult(0)
+    log.debug(f"{func_name}: {boolean}, {result}")
     if result == -1:
         # SDKERROR = -1
         raise SystemError("Execution raised: SDKERROR!")
     elif result == 0:
         # UNDONE = 0
-        raise IOError("Execution: undone.")
+        log.warning("Execution: undone.")
+        return True
     elif result == 1:
         # INPROGRESS = 1
-        dprint("Execution: inprogress.")
+        log.warning("Execution: inprogress.")
         return True
     elif result == 2:
         # DONESUCCESS = 2
         return True
     elif result == 3:
         # DONEFATALERROR = 3
-        raise IOError("Execution: FAILED!")
-    elif result == 4:
-        # DONEMINORERROR = 4
-        dprint("Execution: FAILED - minor error!")
-        return True
-    elif result == 5:
-        # CURRENTTASK = 5
-        raise IOError("Execution: current task")
-    elif result == 6:
-        # UNKNOWN = 6
-        raise SystemError("I have no clue!")
-
-
-def getResult(fname):
-    """Get the methods execution result."""
-    boolean, result = NrkSdk.GetMPStepResult(0)
-    dprint(f"{fname}: {boolean}, {result}")
-    if result == -1:
-        # SDKERROR = -1
-        raise SystemError("Execution raised: SDKERROR!")
-    elif result == 0:
-        # UNDONE = 0
-        dprint("Execution: undone.")
-        return True
-    elif result == 1:
-        # INPROGRESS = 1
-        dprint("Execution: inprogress.")
-        return True
-    elif result == 2:
-        # DONESUCCESS = 2
-        return True
-    elif result == 3:
-        # DONEFATALERROR = 3
-        dprint("Execution: FAILED!")
+        log.error("Execution: FAILED!")
         return False
     elif result == 4:
         # DONEMINORERROR = 4
-        dprint("Execution: FAILED - minor error!")
-        return True
+        log.warning("Execution: FAILED - minor error!")
+        return False
     elif result == 5:
         # CURRENTTASK = 5
-        dprint("Execution: current task")
+        log.info("Execution: current task")
         return True
     elif result == 6:
         # UNKNOWN = 6
@@ -136,16 +102,10 @@ class NamedPoint3D:
 
         # Get XYZ
         pData = get_point_coordinate(self.collection, self.group, self.name)
-        dprint(f"pData: {pData}")
+        log.info(f"pData: {pData}")
         self.X = pData[0]
         self.Y = pData[1]
         self.Z = pData[2]
-
-
-class CTE:
-    AluminumCTE_1DegF = 0.0000131
-    SteelCTE_1DegF = 0.0000065
-    CarbonFiberCTE_1DegF = 0
 
 
 # ##############################
@@ -153,14 +113,14 @@ class CTE:
 # ##############################
 def find_files_in_directory(directory, searchPattern):
     """p27"""
-    fname = "Find Files in Directory"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Find Files in Directory"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Directory", directory)
     NrkSdk.SetStringArg("File Name Pattern", searchPattern)
     NrkSdk.SetBoolArg("Recursive?", False)
     NrkSdk.ExecuteStep()
-    results = getResult(fname)
+    results = getResult(func_name)
     if not results:
         return False
     stringList = System.Runtime.InteropServices.VariantWrapper([])
@@ -179,12 +139,12 @@ def find_files_in_directory(directory, searchPattern):
 # ######################################
 def object_existence_test(ColObjName):
     """p111"""
-    fname = ""
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = ""
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
 
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def ask_for_string(question, *args, **kwargs):
@@ -195,55 +155,57 @@ def ask_for_string(question, *args, **kwargs):
     else:
         initialanswer = ""
 
-    fname = "Ask for String"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Ask for String"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Question to ask", question)
     NrkSdk.SetBoolArg("Password Entry?", False)
     NrkSdk.SetStringArg("Initial Answer", initialanswer)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     answer = NrkSdk.GetStringArg("Answer", "")
     return answer[1]
 
 
 def ask_for_string_pulldown(question, answers):
     """p118"""
-    fname = "Ask for String (Pull-Down Version)"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Ask for String (Pull-Down Version)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     # question section
     questionList = [
         question,
     ]
     QvStringList = System.Runtime.InteropServices.VariantWrapper(questionList)
     NrkSdk.SetStringRefListArg("Question or Statement", QvStringList)
-    # anwsers section
+    # answers section
     AvStringList = System.Runtime.InteropServices.VariantWrapper(answers)
     NrkSdk.SetStringRefListArg("Possible Answers", AvStringList)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     answer = NrkSdk.GetStringArg("Answer", "")
+    log.debug(f"Answer: {answer}")
     return answer[1]
 
 
 def ask_for_user_decision_extended(question, choices):
     """p122"""
-    fname = "Ask for User Decision Extended"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Ask for User Decision Extended"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     stringList = [
         question,
     ]
     vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
     NrkSdk.SetEditTextArg("Question or Statement", vStringList)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
-    selected_answer = 0
-    return selected_answer
+    getResult(func_name)
+    # NrkSdk.NOT_SUPPORTED("Button Answers")
+    # NrkSdk.NOT_SUPPORTED("Step to jump to if Canceled (-1 will fail step on Cancel)")
+    raise SystemError("Not Implemented by SDK!")
 
 
 # ###############################
@@ -256,25 +218,25 @@ def ask_for_user_decision_extended(question, choices):
 # ###########################
 def hide_objects(collection, name, objtype):
     """p153"""
-    fname = "Hide Objects"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Hide Objects"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     objNameList = [
         f"{collection}::{name}::{objtype}",
     ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects To Hide", vObjectList)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def show_hide_objects(collection, objtype, hide):
     """p154"""
     # Hide = hide/True
     # Show = hide/False
-    fname = "Show / Hide by Object Type"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Show / Hide by Object Type"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetBoolArg("All Collections?", False)
     NrkSdk.SetCollectionNameArg("Specific Collection", collection)
     # Available options:
@@ -284,56 +246,56 @@ def show_hide_objects(collection, objtype, hide):
     # "Plane", "Point Group", "Point Set", "Poly Surface", "Scan Stripe Mesh",
     # "Slot", "Sphere", "Surface", "Torus", "Vector Group",
     NrkSdk.SetObjectTypeArg("Object Type To Show / Hide", objtype)
-    dprint(f"\t{collection}::{objtype} Hide? {hide}")
+    log.debug(f"{collection}::{objtype} Hide? {hide}")
     NrkSdk.SetBoolArg("Hide? (Show = FALSE)", hide)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def show_objects(collection, objects, name):
     """p155"""
-    fname = "Show Objects"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Show Objects"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     objNameList = [
         f"{collection}::{objects}::{name}",
     ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects To Show", vObjectList)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def show_hide_callout_view(collection, calloutname, show):
     """p159"""
     # Show = show/True
     # Hide = show/False
-    fname = "Show / Hide Callout View"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Show / Hide Callout View"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Callout View To Show", collection, calloutname)
     NrkSdk.SetBoolArg("Show Callout View?", show)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def hide_all_callout_views():
     """p160"""
-    fname = "Hide All Callout Views"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Hide All Callout Views"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def center_graphics_about_objects(ColWild, ObjWild):
     """p170"""
-    fname = ""
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = ""
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
 
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 # ######################################
@@ -344,48 +306,51 @@ def center_graphics_about_objects(ColWild, ObjWild):
 # ######################################
 # Chapter 7 - Construction Operations ##
 # ######################################
-def rename_point(orgCol, orgGrp, orgName, newCol, newGrp, newName):
+def rename_point(orgCol, orgGrp, orgName, newCol, newGrp, newName, **kwargs):
     """p192"""
-    fname = "Rename Point"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Rename Point"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetPointNameArg("Original Point Name", orgCol, orgGrp, orgName)
     NrkSdk.SetPointNameArg("New Point Name", newCol, newGrp, newName)
-    NrkSdk.SetBoolArg("Overwrite if exists?", False)
+    NrkSdk.SetBoolArg("Overwrite if exists?", kwargs.get("overwrite", False))
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    if not getResult(func_name):
+        print("\n\nERROR: renaming failed.\n")
+        sys.exit(1)
 
 
 def rename_collection(fromName, toName):
     """p194"""
-    fname = "Rename Collection"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Rename Collection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Original Collection Name", fromName)
     NrkSdk.SetCollectionNameArg("New Collection Name", toName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    if not getResult(func_name):
+        raise SystemError("Renaming the folder failed!")
 
 
 def delete_points(collection, group, point):
     """p197"""
-    fname = "Delete Points"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Delete Points"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     ptNameList = [
         f"{collection}::{group}::{point}",
     ]
     vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
     NrkSdk.SetPointNameRefListArg("Point Names", vPointObjectList)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def delete_points_wildcard_selection(Col, Group, ObjType, pName):
     """p198"""
-    fname = "Delete Points WildCard Selection"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Delete Points WildCard Selection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     objNameList = [
         f"{Col}::{Group}::{ObjType}",
     ]
@@ -393,18 +358,18 @@ def delete_points_wildcard_selection(Col, Group, ObjType, pName):
     NrkSdk.SetCollectionObjectNameRefListArg("Groups to Delete From", vObjectList)
     NrkSdk.SetPointNameArg("WildCard Selection Names", "*", "*", pName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_objects_from_surface_faces_runtime_select(*args, **kwargs):
     """p199"""
-    fname = "Construct Objects From Surface Faces - Runtime Select"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Objects From Surface Faces - Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     if "facetype" in kwargs:
         facetype = kwargs["facetype"]
         if not facetype:
-            dprint("\tNo facetype selected!")
+            log.warning("No facetype selected!")
             sys.exit(1)
     # Set correct states
     state = [False, False, False, False, False, False, False]
@@ -431,40 +396,40 @@ def construct_objects_from_surface_faces_runtime_select(*args, **kwargs):
     NrkSdk.SetBoolArg("Construct Points?", state[5])
     NrkSdk.SetBoolArg("Construct Circles?", state[6])
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_or_construct_default_collection(colName):
     """p201"""
-    fname = "Set (or construct) default collection"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set (or construct) default collection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Collection Name", colName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_collection(name, makeDefault):
     """p202"""
     # default collection = makeDefault/True
     # collection = makeDefault/False
-    fname = "Construct Collection"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Collection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Collection Name", name)
     NrkSdk.SetStringArg("Folder Path", "")
     NrkSdk.SetBoolArg("Make Default Collection?", makeDefault)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def get_active_collection():
     """p203"""
-    fname = "Get Active Collection Name"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Active Collection Name"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     sValue = NrkSdk.GetCollectionNameArg("Currently Active Collection Name", "")
     if sValue[0]:
         return sValue[1]
@@ -474,71 +439,84 @@ def get_active_collection():
 
 def delete_collection(collection):
     """p204"""
-    fname = "Delete Collection"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Delete Collection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Name of Collection to Delete", collection)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_a_point(collection, group, name, x, y, z):
     """p208"""
-    fname = "Construct a Point in Working Coordinates"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct a Point in Working Coordinates"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetPointNameArg("Point Name", collection, group, name)
     NrkSdk.SetVectorArg("Working Coordinates", x, y, z)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_point_at_intersection_of_plane_and_line(
     collectionplane, plane, collectionline, line, collectionpoint, grouppoint, point
 ):
     """p218"""
-    fname = "Construct Point at Intersection of Plane and Line"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Point at Intersection of Plane and Line"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Plane Name", collectionplane, plane)
     NrkSdk.SetCollectionObjectNameArg("Line Name", collectionline, line)
     NrkSdk.SetPointNameArg("Resulting Point Name", collectionpoint, grouppoint, point)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_line_2_points(name, fCol, fGrp, fTarg, sCol, sGrp, sTarg):
     """p262"""
-    fname = "Construct Line 2 Points"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Line 2 Points"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Line Name", "", name)
     NrkSdk.SetPointNameArg("First Point", fCol, fGrp, fTarg)
     NrkSdk.SetPointNameArg("Second Point", sCol, sGrp, sTarg)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_plane(planeCol, planeName):
     """p271"""
-    fname = "Construct Plane"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Plane"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Plane Name", planeCol, planeName)
     NrkSdk.SetVectorArg("Plane Center (in working coordinates)", 0.0, 0.0, 0.0)
     NrkSdk.SetVectorArg("Plane Normal (in working coordinates)", 0.0, 0.0, 1.0)
     NrkSdk.SetDoubleArg("Plane Edge Dimension", 0.0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def construct_frame_known_origin_object_direction_object_direction(
-    ptCol, ptGrp, ptTarg, x, y, z, priCol, priObj, priAxisDef, secCol, secObj, secAxisDef, frameCol, frameName
+    ptCol,
+    ptGrp,
+    ptTarg,
+    x,
+    y,
+    z,
+    priCol,
+    priObj,
+    priAxisDef,
+    secCol,
+    secObj,
+    secAxisDef,
+    frameCol,
+    frameName,
 ):
     """p327"""
-    fname = "Construct Frame, Known Origin, Object Direction, Object Direction"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Construct Frame, Known Origin, Object Direction, Object Direction"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetPointNameArg("Known Point", ptCol, ptGrp, ptTarg)
     NrkSdk.SetVectorArg("Known Point Value in New Frame", x, y, z)
     NrkSdk.SetCollectionObjectNameArg("Primary Axis Object", priCol, priObj)
@@ -553,14 +531,14 @@ def construct_frame_known_origin_object_direction_object_direction(
     NrkSdk.SetAxisNameArg("Secondary Axis Defines Which Axis", secAxisDef)
     NrkSdk.SetCollectionObjectNameArg("Frame Name (Optional)", frameCol, frameName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def create_relationship_callout(collection, calloutname, relationshipcollection, relationshipname, *args, **kwargs):
     """p363"""
-    fname = "Create Relationship Callout"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Create Relationship Callout"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relationshipcollection, relationshipname)
     # get X position
@@ -579,14 +557,14 @@ def create_relationship_callout(collection, calloutname, relationshipcollection,
     vStringList = System.Runtime.InteropServices.VariantWrapper([])
     NrkSdk.SetEditTextArg("Additional Notes (blank for none)", vStringList)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def create_text_callout(collection, calloutname, text, *args, **kwargs):
     """p365"""
-    fname = "Create Text Callout"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Create Text Callout"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Destination Callout View", collection, calloutname)
     stringList = [
         text,
@@ -608,14 +586,14 @@ def create_text_callout(collection, calloutname, text, *args, **kwargs):
     NrkSdk.SetDoubleArg("View Y Position", ypos)
     NrkSdk.SetPointNameArg("Callout Anchor Point (Optional)", "", "", "")
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_default_callout_view_properties(calloutname):
     """p372"""
-    fname = "Set Default Callout View Properties"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Default Callout View Properties"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Default Callout View Name", calloutname)
     NrkSdk.SetBoolArg("Lock View Point?", True)
     NrkSdk.SetBoolArg("Recall Working Frame?", True)
@@ -625,21 +603,21 @@ def set_default_callout_view_properties(calloutname):
     NrkSdk.SetIntegerArg("Callout Border Thickness", 2)
     NrkSdk.SetColorArg("Callout Border Color", 0, 0, 255)
     NrkSdk.SetBoolArg("Divide Text with Lines?", False)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def make_a_point_name_runtime_select(txt):
     """p398"""
-    fname = "Make a Point Name - Runtime Select"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make a Point Name - Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("User Prompt", txt)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     point = NrkSdk.GetPointNameArg("Resultant Point Name", "", "", "")
-    dprint(f"\tPoint: {point}")
+    log.debug(f"Point: {point}")
     if point[0]:
         sCol = point[1]
         sGrp = point[2]
@@ -651,12 +629,12 @@ def make_a_point_name_runtime_select(txt):
 
 def make_a_point_name_ref_list_from_a_group(collection, group):
     """p401"""
-    fname = "Make a Point Name Ref List From a Group"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make a Point Name Ref List From a Group"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Group Name", collection, group)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     if ptList[0]:
@@ -670,12 +648,12 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
 
 def make_a_point_name_ref_list_runtime_select(prompt):
     """p402"""
-    fname = "Make a Point Name Ref List - Runtime Select"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make a Point Name Ref List - Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("User Prompt", prompt)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     userPtList = System.Runtime.InteropServices.VariantWrapper([])
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     if ptList[0]:
@@ -689,12 +667,12 @@ def make_a_point_name_ref_list_runtime_select(prompt):
 
 def make_a_collection_name_runtime_select(txt):
     """p408"""
-    fname = "Make a Collection Name - Runtime Select"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make a Collection Name - Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("User Prompt", txt)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     sValue = NrkSdk.GetCollectionNameArg("Resultant Collection Name", "")
     if sValue[0]:
         return sValue[1]
@@ -704,9 +682,9 @@ def make_a_collection_name_runtime_select(txt):
 
 def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     """p416"""
-    fname = "Make a Collection Object Name Ref List - By Type"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make a Collection Object Name Ref List - By Type"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Collection", collection)
     # Available options:
     # "Any", "B-Spline", "Circle", "Cloud", "Scan Stripe Cloud",
@@ -716,13 +694,13 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     # "Slot", "Sphere", "Surface", "Torus", "Vector Group",
     NrkSdk.SetObjectTypeArg("Object Type", objtype)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     userObjectList = System.Runtime.InteropServices.VariantWrapper([])
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
-    dprint(f"\tobjectList: {objectList}")
-    dprint(f"\tobjectList[0]: {objectList[0]}")
-    dprint(f"\tobjectList[1]: {objectList[1]}")
-    dprint(f"\tLength objectList[1]: {objectList[1].GetLength(0)}")
+    log.debug(f"objectList: {objectList}")
+    log.debug(f"objectList[0]: {objectList[0]}")
+    log.debug(f"objectList[1]: {objectList[1]}")
+    log.debug(f"Length objectList[1]: {objectList[1].GetLength(0)}")
     if objectList[0]:
         objects = []
         for i in range(objectList[1].GetLength(0)):
@@ -737,13 +715,13 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
 # ##################################
 def get_number_of_collections():
     """p465"""
-    fname = "Get Number of Collections"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Number of Collections"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     n = NrkSdk.GetIntegerArg("Total Count", 0)
-    dprint(f"n: {n}")
+    log.debug(f"n: {n}")
     if n[0]:
         return n[1]
     else:
@@ -752,24 +730,54 @@ def get_number_of_collections():
 
 def get_ith_collection_name(i):
     """p466"""
-    fname = "Get i-th Collection Name"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get i-th Collection Name"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetIntegerArg("Collection Index", i)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     collection = NrkSdk.GetCollectionNameArg("Resultant Name", "")
-    dprint(f"\tCollection: {collection}")
+    log.debug(f"Collection: {collection}")
     if collection[0]:
         return collection[1]
     else:
         return False
 
 
+def get_vector_group_properties(collection, vectorgroup):
+    """p481"""
+    func_name = "Get Vector Group Properties"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Vector Group Name", collection, vectorgroup)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        raise SystemError("Execution Failed!")
+    results = {}
+    # For each 'Get___' request a tuple is returned, we need to save the second argument ([1]) only.
+    results["total_vectors"] = NrkSdk.GetIntegerArg("Total Vectors", 0)[1]
+    results["vectors_in_tolerance"] = NrkSdk.GetIntegerArg("Vectors In Tolerance", 0)[1]
+    results["vectors_out_of_tolerance"] = NrkSdk.GetIntegerArg("Vectors Out Of Tolerance", 0)[1]
+    results["%_vector_in_tolerance"] = NrkSdk.GetDoubleArg("% Vectors In Tolerance", 0.0)[1]
+    results["%_vector_out_tolerance"] = NrkSdk.GetDoubleArg("% Vectors Out Of Tolerance", 0.0)[1]
+    results["abs_max_mag"] = NrkSdk.GetDoubleArg("Absolute Max Magnitude", 0.0)[1]
+    results["abs_min_mag"] = NrkSdk.GetDoubleArg("Absolute Min Magnitude", 0.0)[1]
+    results["max_mag"] = NrkSdk.GetDoubleArg("Max Magnitude", 0.0)[1]
+    results["min_mag"] = NrkSdk.GetDoubleArg("Min Magnitude", 0.0)[1]
+    results["standard_deviation"] = NrkSdk.GetDoubleArg("Standard Deviation", 0.0)[1]
+    results["standard_deviation_to_mean_zero"] = NrkSdk.GetDoubleArg("Standard Deviation Mean Zero", 0.0)[1]
+    results["avg_mag"] = NrkSdk.GetDoubleArg("Avg Magnitude", 0.0)[1]
+    results["avg_abs_mag"] = NrkSdk.GetDoubleArg("Avg of Abs Magnitude", 0.0)[1]
+    results["high_tol"] = NrkSdk.GetDoubleArg("High Tolerance Value", 0.0)[1]
+    results["low_tol"] = NrkSdk.GetDoubleArg("Low Tolerance Value", 0.0)[1]
+    results["rms_val"] = NrkSdk.GetDoubleArg("RMS Value", 0.0)[1]
+    return results
+
+
 def set_vector_group_colorization_options_selected(collection, vectorgroup, *args, **kwargs):
     """p485"""
-    fname = "Set Vector Group Colorization Options (Selected)"
-    fprint(fname)
+    func_name = "Set Vector Group Colorization Options (Selected)"
+    log.debug(func_name)
     NrkSdk.SetStep("Set Vector Group Colorization Options (Selected)")
     vgNameList = [
         f"{collection}::{vectorgroup}",
@@ -799,20 +807,20 @@ def set_vector_group_colorization_options_selected(collection, vectorgroup, *arg
         kwargs["low_tol"],
     )
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def get_point_coordinate(collection, group, pointname):
     """p489"""
-    fname = "Get Point Coordinate"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Point Coordinate"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
     NrkSdk.ExecuteStep()
-    if not getResult(fname):
+    if not getResult(func_name):
         return False
     Vector = NrkSdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
-    dprint(f"\tVector: {Vector}")
+    log.debug(f"Vector: {Vector}")
     if Vector[0]:
         xVal = Vector[1]
         yVal = Vector[2]
@@ -824,13 +832,13 @@ def get_point_coordinate(collection, group, pointname):
 
 def get_point_to_point_distance(p1col, p1grp, p1name, p2col, p2grp, p2name):
     """p495"""
-    fname = "Get Point To Point Distance"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Point To Point Distance"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetPointNameArg("First Point", p1col, p1grp, p1name)
     NrkSdk.SetPointNameArg("Second Point", p2col, p2grp, p2name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     # xVal, yVal, zValNrkSdk.GetVectorArg("Vector Representation", 0.0, 0.0, 0.0)
     xval = NrkSdk.GetDoubleArg("X Value", 0.0)
     yval = NrkSdk.GetDoubleArg("Y Value", 0.0)
@@ -847,9 +855,9 @@ def get_point_to_point_distance(p1col, p1grp, p1name, p2col, p2grp, p2name):
 
 def set_default_colorization_options():
     """p531"""
-    fname = "Set Default Colorization Options"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Default Colorization Options"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetColorizationOptionsArg(
         "Colorization Options",
         "Continuous",
@@ -873,14 +881,14 @@ def set_default_colorization_options():
         -0.5,
     )
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_vector_group_display_attributes(magnification, blotch, tolerance):
     """p532"""
-    fname = "Set Vector Group Display Attributes"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Vector Group Display Attributes"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetBoolArg("Draw Arrowheads?", False)
     NrkSdk.SetBoolArg("Indicate Values?", False)
     NrkSdk.SetDoubleArg("Vector Magnification", magnification)
@@ -916,16 +924,24 @@ def set_vector_group_display_attributes(magnification, blotch, tolerance):
     NrkSdk.SetBaseColorTypeArg("Base Low Color", "Red")
     NrkSdk.SetBoolArg("Draw Tubes?", True)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def fit_geometry_to_point_group(
-    geomType, dataCol, dataGroup, resultCol, resultName, profilename, reportdiv, fittol, outtol
+    geomType,
+    dataCol,
+    dataGroup,
+    resultCol,
+    resultName,
+    profilename,
+    reportdiv,
+    fittol,
+    outtol,
 ):
     """p547"""
-    fname = "Fit Geometry to Point Group"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Fit Geometry to Point Group"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     # Available options:
     #     "Line", "Plane", "Circle", "Sphere", "Cylinder",
     #     "Cone", "Paraboloid", "Ellipse", "Slot",
@@ -938,14 +954,23 @@ def fit_geometry_to_point_group(
     NrkSdk.SetBoolArg("Ignore Out of Tolerance Points", outtol)
     NrkSdk.SetCollectionObjectNameArg("Starting Condition Geometry (optional)", "", "")
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
-def best_fit_group_to_group(refCollection, refGroup, corCollection, corGroup, showDialog, rmsTol, maxTol, allowScale):
+def best_fit_group_to_group(
+    refCollection,
+    refGroup,
+    corCollection,
+    corGroup,
+    showDialog,
+    rmsTol,
+    maxTol,
+    allowScale,
+):
     """p551"""
-    fname = "Best Fit Transformation - Group to Group"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Best Fit Transformation - Group to Group"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Reference Group", refCollection, refGroup)
     NrkSdk.SetCollectionObjectNameArg("Corresponding Group", corCollection, corGroup)
     NrkSdk.SetBoolArg("Show Interface", showDialog)
@@ -961,26 +986,58 @@ def best_fit_group_to_group(refCollection, refGroup, corCollection, corGroup, sh
     NrkSdk.SetBoolArg("Lock Degrees of Freedom", False)
     NrkSdk.SetFilePathArg("File Path for CSV Text Report (requires Show Interface = TRUE)", "", False)
     NrkSdk.ExecuteStep()
-    r = getResult(fname)
+    r = getResult(func_name)
     return r
 
 
 def make_point_to_point_relationship(relCol, relName, p1col, p1grp, p1, p2col, p2grp, p2):
     """p632"""
-    fname = "Make Point to Point Relationship"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make Point to Point Relationship"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetPointNameArg("First Point Name", p1col, p1grp, p1)
     NrkSdk.SetPointNameArg("Second Point Name", p2col, p2grp, p2)
     NrkSdk.SetToleranceVectorOptionsArg(
-        "Tolerance", False, 0.0, False, 0.0, False, 0.0, False, 0.0, False, 0.0, False, 0.0, False, 0.0, False, 0.0
+        "Tolerance",
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
     )
     NrkSdk.SetToleranceVectorOptionsArg(
-        "Constraint", True, 0.0, True, 0.0, True, 0.0, False, 0.0, True, 0.0, True, 0.0, True, 0.0, False, 0.0
+        "Constraint",
+        True,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        False,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        False,
+        0.0,
     )
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def make_group_to_nominal_group_relationship(
@@ -992,9 +1049,9 @@ def make_group_to_nominal_group_relationship(
     meaGrp,
 ):
     """p646"""
-    fname = "Make Group to Nominal Group Relationship"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Make Group to Nominal Group Relationship"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetCollectionObjectNameArg("Nominal Group Name", nomCol, nomGrp)
     NrkSdk.SetCollectionObjectNameArg("Measured Group Name", meaCol, meaGrp)
@@ -1005,24 +1062,56 @@ def make_group_to_nominal_group_relationship(
     NrkSdk.SetBoolArg("Ignore Points Beyond Threshold?", False)
     NrkSdk.SetDoubleArg("Proximity Threshold?", 0.01)
     NrkSdk.SetToleranceVectorOptionsArg(
-        "Tolerance", False, 0.0, False, 0.0, False, 0.0, True, 1.5, False, 0.0, False, 0.0, False, 0.0, True, 0.0
+        "Tolerance",
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        True,
+        1.5,
+        False,
+        0.0,
+        False,
+        0.0,
+        False,
+        0.0,
+        True,
+        0.0,
     )
     NrkSdk.SetToleranceVectorOptionsArg(
-        "Constraint", True, 0.0, True, 0.0, True, 0.0, False, 0.0, True, 0.0, True, 0.0, True, 0.0, False, 0.0
+        "Constraint",
+        True,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        False,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        True,
+        0.0,
+        False,
+        0.0,
     )
     NrkSdk.SetDoubleArg("Fit Weight", 1.0)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def make_geometry_fit_and_compare_to_nominal_relationship(
-    relatCol, relatName, nomCol, nomName, data, resultCol, resultName
+    relCol, relName, nomCol, nomName, data, resultCol, resultName
 ):
     """p649"""
-    fname = "Make Geometry Fit and Compare to Nominal Relationship"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
-    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relatCol, relatName)
+    func_name = "Make Geometry Fit and Compare to Nominal Relationship"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetCollectionObjectNameArg("Nominal Geometry", nomCol, nomName)
     objNameList = []
     for item in data:
@@ -1032,46 +1121,55 @@ def make_geometry_fit_and_compare_to_nominal_relationship(
     NrkSdk.SetCollectionObjectNameArg("Resulting Object Name (Optional)", resultCol, resultName)
     NrkSdk.SetStringArg("Fit Profile Name (Optional)", "")
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
+
+
+def get_general_relationship_statistics(collection, relationshipname):
+    """p659"""
+    func_name = "Get General Relationship Statistics"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    results = {}
+    results["max_dev"] = NrkSdk.GetDoubleArg("Max Deviation", 0.0)
+    results["rms"] = NrkSdk.GetDoubleArg("RMS", 0.0)
+    results["has_sign_dev"] = NrkSdk.GetBoolArg("Has Signed Deviation?", False)
+    results["sign_max_dev"] = NrkSdk.GetDoubleArg("Signed Max Deviation", 0.0)
+    results["sign_min_dev"] = NrkSdk.GetDoubleArg("Signed Min Deviation", 0.0)
+    return results
 
 
 def get_geom_relationship_criteria(relCol, relName, criteria):
     """p660"""
-    fname = "Get Geom Relationship Criteria"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Geom Relationship Criteria"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetStringArg("Criteria", criteria)
     NrkSdk.ExecuteStep()
-    if not getResult(fname):
+    if not getResult(func_name):
         return False
-    nominal = NrkSdk.GetDoubleArg("Nominal", 0.0)
-    measured = NrkSdk.GetDoubleArg("Measured", 0.0)
-    delta = NrkSdk.GetDoubleArg("Delta", 0.0)
-    lowtol = NrkSdk.GetDoubleArg("Low Tolerance", 0.0)
-    hightol = NrkSdk.GetDoubleArg("High Tolerance", 0.0)
-    deltaweight = NrkSdk.GetDoubleArg("Optimization: Delta Weight", 0.0)
-    outoftolweight = NrkSdk.GetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
-    dict_return = {
-        "nominal": nominal[1],
-        "measured": measured[1],
-        "delta": delta[1],
-        "lowtol": lowtol[1],
-        "hightol": hightol[1],
-        "deltaweight": deltaweight[1],
-        "outoftolweight": outoftolweight[1],
-    }
-    # print(dict_return)
-    return dict_return
+    results = {}
+    # For each 'Get___' request a tuple is returned, we need to save the second argument ([1]) only.
+    results["nominal"] = NrkSdk.GetDoubleArg("Nominal", 0.0)[1]
+    results["measured"] = NrkSdk.GetDoubleArg("Measured", 0.0)[1]
+    results["delta"] = NrkSdk.GetDoubleArg("Delta", 0.0)[1]
+    results["lowtol"] = NrkSdk.GetDoubleArg("Low Tolerance", 0.0)[1]
+    results["hightol"] = NrkSdk.GetDoubleArg("High Tolerance", 0.0)[1]
+    results["deltaweight"] = NrkSdk.GetDoubleArg("Optimization: Delta Weight", 0.0)[1]
+    results["outoftolweight"] = NrkSdk.GetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)[1]
+    return results
 
 
 def set_relationship_associated_data(relCol, group, collectionmeasured, groupmeasured):
     """p664"""
     # The function only excepts 'groups' as an input.
     # Individual points, point clouds and objects aren't support for now.
-    fname = "Set Relationship Associated Data"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Associated Data"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, group)
     # individual points
     ptNameList = []
@@ -1094,25 +1192,25 @@ def set_relationship_associated_data(relCol, group, collectionmeasured, groupmea
     # additional setting
     NrkSdk.SetBoolArg("Ignore Empty Arguments?", True)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_relationship_reporting_frame(relCol, relGrp, frmCol, frmName):
     """p679"""
-    fname = "Set Relationship Reporting Frame"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Reporting Frame"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relGrp)
     NrkSdk.SetCollectionObjectNameArg("Reporting Frame", frmCol, frmName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_geom_relationship_criteria(relCol, relName, criteriatype):
     """p680"""
-    fname = "Set Geom Relationship Criteria"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Geom Relationship Criteria"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     # Flatness
     if criteriatype == "Flatness":
@@ -1143,49 +1241,49 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
         NrkSdk.SetDoubleArg("Optimization: Delta Weight", 0.0)
         NrkSdk.SetDoubleArg("Optimization: Out of Tolerance Weight", 0.0)
     else:
-        dprint("\tIncorrect criteria type set!")
+        log.warning("Incorrect criteria type set!")
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_geom_relationship_auto_vectors_nominal_avn(collection, relationshipname, bool):
     """p690"""
-    fname = "Set Geom Relationship Auto Vectors Nominal (AVN)"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Geom Relationship Auto Vectors Nominal (AVN)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
     NrkSdk.SetBoolArg("Create Auto Vectors AVN", bool)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_relationship_auto_vectors_fit_avf(collection, relationshipname, bool):
     """p691"""
-    fname = "Set Relationship Auto Vectors Fit (AVF)"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Auto Vectors Fit (AVF)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationshipname)
     NrkSdk.SetBoolArg("Create Auto Vectors AVF", bool)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_relationship_desired_meas_count(relCol, relName, count):
     """p693"""
-    fname = "Set Relationship Desired Meas Count"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Desired Meas Count"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetIntegerArg("Desired Measurement Count", count)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_relationship_tolerance_vector_type(relCol, relName):
     """p697"""
-    fname = "Set Relationship Tolerance (Vector Type)"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Tolerance (Vector Type)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relName)
     NrkSdk.SetToleranceVectorOptionsArg(
         "Vector Tolerance",
@@ -1207,17 +1305,42 @@ def set_relationship_tolerance_vector_type(relCol, relName):
         0.0,
     )
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 # ###################################
 # Chapter 9 - Reporting Operations ##
 # ###################################
-def set_relationship_report_options(relCol, relGrp, *args, **kwargs):
+def set_vector_group_report_options(collection, vector_group, **kwargs):
+    """p769"""
+    func_name = "Set Vector Group Report Options"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Vector Group", collection, vector_group)
+    NrkSdk.SetPointDeltaReportOptionsArg(
+        "Report Options",
+        kwargs["coord_system"],  # str
+        kwargs["record_format"],  # str
+        kwargs["point_a"],  # bool
+        kwargs["point_b"],  # bool
+        kwargs["delta"],  # bool
+        kwargs["mag"],  # bool
+        kwargs["X"],  # bool
+        kwargs["Y"],  # bool
+        kwargs["Z"],  # bool
+        kwargs["sort_point_names"],  # bool
+        kwargs["tolerance_values"],  # bool
+        kwargs["colorize"],  # bool
+    )
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
+def set_relationship_report_options(relCol, relGrp, **kwargs):
     """p770"""
-    fname = "Set Relationship Report Options"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Relationship Report Options"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", relCol, relGrp)
     NrkSdk.SetPointDeltaReportOptionsArg(
         "Report Options",
@@ -1235,24 +1358,24 @@ def set_relationship_report_options(relCol, relGrp, *args, **kwargs):
         kwargs["j"],
     )
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def notify_user_text_array(txt, timeout=0):
     """p804"""
-    fname = "Notify User Text Array"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Notify User Text Array"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     stringList = [
         txt,
     ]
     vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
     NrkSdk.SetEditTextArg("Notification Text", vStringList)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.SetBoolArg("Auto expand to fit text?", False)
     NrkSdk.SetIntegerArg("Display Timeout", timeout)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 # ####################################
@@ -1270,65 +1393,82 @@ def notify_user_text_array(txt, timeout=0):
 # #####################################
 def get_last_instrument_index(collection):
     """p870"""
-    fname = "Get Last Instrument Index"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Last Instrument Index"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
-    # instId = NrkSdk.GetIntegerArg("Instrument ID", 0)
-    # dprint(f'\tinstId: {instId}')
+    getResult(func_name)
     ColInstID = NrkSdk.GetColInstIdArg("Instrument ID", "", 0)
-    dprint(f"\tColInstID: {ColInstID}")
-    return (ColInstID[1], ColInstID[2])
+    collection = ColInstID[1]
+    inst_id = ColInstID[2]
+    log.debug(f"ColInstID: {collection}, {inst_id}")
+    return (collection, inst_id)
 
 
 def point_at_target(instCol, instId, collection, group, name):
     """p877"""
-    fname = "Point At Target"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Point At Target"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetColInstIdArg("Instrument ID", instCol, instId)
     NrkSdk.SetPointNameArg("Target ID", collection, group, name)
     NrkSdk.SetFilePathArg("HTML Prompt File (optional)", "", False)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    if not getResult(func_name):
+        raise SystemError(f"Failed pointing at point: {collection}::{group}::{name}")
 
 
 def add_new_instrument(instName):
     """p889"""
-    fname = "Add New Instrument"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Add New Instrument"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetInstTypeNameArg("Instrument Type", instName)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     ColInstID = NrkSdk.GetColInstIdArg("Instrument Added (result)", "", 0)
-    dprint(f"\tColInstID: {ColInstID}")
+    log.debug(f"ColInstID: {ColInstID}")
     return ColInstID[1], ColInstID[2]
 
 
 def start_instrument(InstCol, InstID, initialize, simulation):
     """p902"""
-    fname = "Start Instrument Interface"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Start Instrument Interface"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetColInstIdArg("Instrument's ID", InstCol, InstID)
     NrkSdk.SetBoolArg("Initialize at Startup", initialize)
     NrkSdk.SetStringArg("Device IP Address (optional)", "")
     NrkSdk.SetIntegerArg("Interface Type (0=default)", 0)
     NrkSdk.SetBoolArg("Run in Simulation", simulation)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
-def stop_instrument(collection, instid):
+def stop_instrument(collection, inst_id):
     """p903"""
-    fname = "Stop Instrument Interface"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
-    NrkSdk.SetColInstIdArg("Instrument's ID", collection, instid)
+    func_name = "Stop Instrument Interface"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetColInstIdArg("Instrument's ID", collection, inst_id)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
+
+
+def verify_instrument_connection(collection, inst_id):
+    """p905"""
+    func_name = "Verify Instrument Connection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetColInstIdArg("Instrument's ID", collection, inst_id)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    bValue = NrkSdk.GetBoolArg("Connected?", False)
+    log.debug(f"Tracker Connection info: {bValue[1]}")
+    if bValue[0]:
+        return bValue[1]
+    else:
+        return False
 
 
 def configure_and_measure(
@@ -1343,9 +1483,9 @@ def configure_and_measure(
     timeoutInSecs,
 ):
     """p906"""
-    fname = "Configure and Measure"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Configure and Measure"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetColInstIdArg("Instrument's ID", instrumentCollection, instId)
     NrkSdk.SetPointNameArg("Target Name", targetCollection, group, name)
     NrkSdk.SetStringArg("Measurement Mode", profileName)
@@ -1353,20 +1493,20 @@ def configure_and_measure(
     NrkSdk.SetBoolArg("Wait for Completion", waitForCompletion)
     NrkSdk.SetDoubleArg("Timeout in Seconds", timeoutInSecs)
     NrkSdk.ExecuteStep()
-    result = getResult(fname)
+    result = getResult(func_name)
     return result
 
 
 def compute_CTE_scale_factor(cte, parttemp):
     """p929"""
-    fname = "Compute CTE Scale Factor"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Compute CTE Scale Factor"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetDoubleArg("Material CTE (1/Deg F)", cte)
     NrkSdk.SetDoubleArg("Initial Temperature (F)", parttemp)
     NrkSdk.SetDoubleArg("Final Temperature (F)", 68.000000)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     scaleFactor = NrkSdk.GetDoubleArg("Scale Factor", 0.0)
     if scaleFactor[0]:
         return scaleFactor[1]
@@ -1376,13 +1516,13 @@ def compute_CTE_scale_factor(cte, parttemp):
 
 def set_instrument_scale_absolute(collection, instid, scaleFactor):
     """p931"""
-    fname = "Set (absolute) Instrument Scale Factor (CAUTION!)"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set (absolute) Instrument Scale Factor (CAUTION!)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetColInstIdArg("Instrument's ID", collection, instid)
     NrkSdk.SetDoubleArg("Scale Factor", scaleFactor)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 # ################################
@@ -1395,34 +1535,34 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
 # ##################################
 def delete_folder(foldername):
     """p1054"""
-    fname = "Delete Folder"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Delete Folder"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Folder Path", foldername)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def move_collection_to_folder(collection, folder):
     """p1055"""
-    fname = "Move Collection to Folder"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Move Collection to Folder"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Collection", collection)
     NrkSdk.SetStringArg("Folder Path", folder)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def get_folders_by_wildcard(search):
     """p1057"""
-    fname = "Get Folders by Wildcard"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Folders by Wildcard"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Search String", search)
     NrkSdk.SetBoolArg("Case Sensitive Search", False)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     stringList = System.Runtime.InteropServices.VariantWrapper([])
     vStringList = NrkSdk.GetStringRefListArg("Folder List", stringList)
     if vStringList[0]:
@@ -1436,12 +1576,12 @@ def get_folders_by_wildcard(search):
 
 def get_folder_collections(folder):
     """p1060"""
-    fname = "Get Folder Collections"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Get Folder Collections"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetStringArg("Folder Path", folder)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
     stringList = System.Runtime.InteropServices.VariantWrapper([])
     vStringList = NrkSdk.GetStringRefListArg("Collection List", stringList)
     if vStringList[0]:
@@ -1455,40 +1595,58 @@ def get_folder_collections(folder):
 
 def set_collection_notes(collection, notes):
     """p1063"""
-    fname = "Set Collection Notes"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Collection Notes"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Collection", collection)
     stringList = [notes]
     vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
     NrkSdk.SetEditTextArg("Notes", vStringList)
     NrkSdk.SetBoolArg("Append? (FALSE = Overwrite)", True)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def set_working_frame(col, name):
     """p1080"""
-    fname = "Set Working Frame"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Set Working Frame"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("New Working Frame Name", col, name)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
 
 
 def delete_objects(col, name, objtype):
     """p1089"""
-    fname = "Delete Objects"
-    fprint(fname)
-    NrkSdk.SetStep(fname)
+    func_name = "Delete Objects"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
     objNameList = [
         f"{col}::{name}::{objtype}",
     ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Object Names", vObjectList)
     NrkSdk.ExecuteStep()
-    getResult(fname)
+    getResult(func_name)
+
+
+def set_interaction_mode(sa_interaction_mode, mp_interaction_mode, mp_dialog_interaction_mode):
+    """p1117"""
+    func_name = "Set Interaction Mode"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    # Available options:
+    # "Manual", "Automatic", "Silent",
+    NrkSdk.SetSAInteractionModeArg("SA Interaction Mode", sa_interaction_mode)
+    # Available options:
+    # "Halt on Failure Only", "Halt on Failure or Partial Success", "Never Halt",
+    NrkSdk.SetMPInteractionModeArg("Measurement Plan Interaction Mode", mp_interaction_mode)
+    # Available options:
+    # "Block Application Interaction", "Allow Application Interaction",
+    NrkSdk.SetMPDialogInteractionModeArg("Measurement Plan Dialog Interaction Mode", mp_dialog_interaction_mode)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
 
 
 # ###########################################
