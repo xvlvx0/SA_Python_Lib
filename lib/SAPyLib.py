@@ -3,8 +3,8 @@ SAPyLib = Spatial Analyzer Python .NET library
 
 This library provides the communication layer to the SA SDK .NET dll.
 Author: L. Ververgaard
-Date: 2021-08-15
-Version: 2
+Date: 2021-09-19
+Version: 3
 """
 import sys
 import os
@@ -17,14 +17,9 @@ import System
 import System.Reflection
 
 
-basepath = r"C:\Analyzer Data\Scripts\SAPython"
-
-# Set the debugging reporting value
-DEBUG = True
-
-
 # SA SDK dll
-sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
+basepath = "C:/Analyzer Data/Scripts/SAPython"
+sa_sdk_dll_file = os.path.join(basepath, "dll/Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
 sa_sdk_class_type = sa_sdk_dll.GetType("SpatialAnalyzerSDK.SpatialAnalyzerSDKClass")
 NrkSdk = System.Activator.CreateInstance(sa_sdk_class_type)
@@ -32,6 +27,8 @@ SAConnected = NrkSdk.Connect("127.0.0.1")
 if not SAConnected:
     raise IOError("Connection to SA SDK failed!")
 
+
+# Get the logger
 log = logging.getLogger(__name__)
 
 
@@ -55,7 +52,7 @@ def getResult(func_name):
     elif result == 0:
         # UNDONE = 0
         log.warning("Execution: undone.")
-        return True
+        raise SystemError("Execution raised: UNDONE!")
     elif result == 1:
         # INPROGRESS = 1
         log.warning("Execution: inprogress.")
@@ -147,7 +144,7 @@ def object_existence_test(ColObjName):
     getResult(func_name)
 
 
-def ask_for_string(question, *args, **kwargs):
+def ask_for_string(question, **kwargs):
     """p117"""
 
     if "initialanswer" in kwargs:
@@ -293,7 +290,6 @@ def center_graphics_about_objects(ColWild, ObjWild):
     func_name = ""
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
@@ -330,6 +326,19 @@ def rename_collection(fromName, toName):
     NrkSdk.ExecuteStep()
     if not getResult(func_name):
         raise SystemError("Renaming the folder failed!")
+
+
+def rename_object(old_col, old_name, new_col, new_name):
+    """p195"""
+    func_name = "Rename Object"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Original Object Name", old_col, old_name)
+    NrkSdk.SetCollectionObjectNameArg("New Object Name", new_col, new_name)
+    NrkSdk.SetBoolArg("Overwrite if exists?", False)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        raise SystemError("Renaming the object failed!")
 
 
 def delete_points(collection, group, point):
@@ -640,7 +649,7 @@ def make_a_point_name_ref_list_from_a_group(collection, group):
     if ptList[0]:
         points = []
         for i in range(ptList[1].GetLength(0)):
-            points.append(ptList[1][i].split("::"))
+            points.append(NamedPoint(ptList[1][i].split("::")))
         return points
     else:
         return False
@@ -680,6 +689,30 @@ def make_a_collection_name_runtime_select(txt):
         return False
 
 
+def make_a_collection_object_name_runtime_select(prompt, obj_type):
+    """p413"""
+    func_name = "Make a Collection Object Name - Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetStringArg("User Prompt", prompt)
+    # Available options:
+    # "Any", "B-Spline", "Circle", "Cloud", "Scan Stripe Cloud",
+    # "Cross Section Cloud", "Cone", "Cylinder", "Datum", "Ellipse",
+    # "Frame", "Frame Set", "Line", "Paraboloid", "Perimeter",
+    # "Plane", "Point Group", "Point Set", "Poly Surface", "Scan Stripe Mesh",
+    # "Slot", "Sphere", "Surface", "Torus", "Vector Group",
+    NrkSdk.SetObjectTypeArg("Object Type", obj_type)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        return False
+    result = NrkSdk.GetCollectionObjectNameArg("Resultant Collection Object Name", "", "")
+    if not result[0]:
+        return False
+    sCol = result[1]
+    sObj = result[2]
+    return (sCol, sObj)
+
+
 def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     """p416"""
     func_name = "Make a Collection Object Name Ref List - By Type"
@@ -697,10 +730,26 @@ def make_a_collection_object_name_ref_list_by_type(collection, objtype):
     getResult(func_name)
     userObjectList = System.Runtime.InteropServices.VariantWrapper([])
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
-    log.debug(f"objectList: {objectList}")
-    log.debug(f"objectList[0]: {objectList[0]}")
-    log.debug(f"objectList[1]: {objectList[1]}")
-    log.debug(f"Length objectList[1]: {objectList[1].GetLength(0)}")
+    if objectList[0]:
+        objects = []
+        for i in range(objectList[1].GetLength(0)):
+            objects.append(objectList[1][i].split("::"))
+        return objects
+    else:
+        return False
+
+
+def make_a_relationship_reference_list_wildCard_selection(collection, relationship):
+    """p427"""
+    func_name = "Make a Relationship Reference List- WildCard Selection"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetStringArg("Collection Wildcard Criteria", collection)
+    NrkSdk.SetStringArg("Relationship Wildcard Criteria", relationship)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Relationship Reference List", userObjectList)
     if objectList[0]:
         objects = []
         for i in range(objectList[1].GetLength(0)):
@@ -752,7 +801,7 @@ def get_vector_group_properties(collection, vectorgroup):
     NrkSdk.SetCollectionObjectNameArg("Vector Group Name", collection, vectorgroup)
     NrkSdk.ExecuteStep()
     if not getResult(func_name):
-        raise SystemError("Execution Failed!")
+        return False
     results = {}
     # For each 'Get___' request a tuple is returned, we need to save the second argument ([1]) only.
     results["total_vectors"] = NrkSdk.GetIntegerArg("Total Vectors", 0)[1]
@@ -1124,6 +1173,16 @@ def make_geometry_fit_and_compare_to_nominal_relationship(
     getResult(func_name)
 
 
+def delete_relationship(collection, relationship):
+    """p656"""
+    func_name = "Delete Relationship"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationship)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
 def get_general_relationship_statistics(collection, relationshipname):
     """p659"""
     func_name = "Get General Relationship Statistics"
@@ -1133,11 +1192,11 @@ def get_general_relationship_statistics(collection, relationshipname):
     NrkSdk.ExecuteStep()
     getResult(func_name)
     results = {}
-    results["max_dev"] = NrkSdk.GetDoubleArg("Max Deviation", 0.0)
-    results["rms"] = NrkSdk.GetDoubleArg("RMS", 0.0)
-    results["has_sign_dev"] = NrkSdk.GetBoolArg("Has Signed Deviation?", False)
-    results["sign_max_dev"] = NrkSdk.GetDoubleArg("Signed Max Deviation", 0.0)
-    results["sign_min_dev"] = NrkSdk.GetDoubleArg("Signed Min Deviation", 0.0)
+    results["max_dev"] = NrkSdk.GetDoubleArg("Max Deviation", 0.0)[1]
+    results["rms"] = NrkSdk.GetDoubleArg("RMS", 0.0)[1]
+    results["has_sign_dev"] = NrkSdk.GetBoolArg("Has Signed Deviation?", False)[1]
+    results["sign_max_dev"] = NrkSdk.GetDoubleArg("Signed Max Deviation", 0.0)[1]
+    results["sign_min_dev"] = NrkSdk.GetDoubleArg("Signed Min Deviation", 0.0)[1]
     return results
 
 
