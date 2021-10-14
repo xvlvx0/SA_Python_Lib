@@ -3,8 +3,6 @@ SAPyLib = Spatial Analyzer Python .NET library
 
 This library provides the communication layer to the SA SDK .NET dll.
 Author: L. Ververgaard
-Date: 2021-09-19
-Version: 3
 """
 import sys
 import os
@@ -93,9 +91,16 @@ class NamedPoint:
 
 class NamedPoint3D:
     def __init__(self, point):
-        self.collection = point[0]
-        self.group = point[1]
-        self.name = point[2]
+        log.debug("NamedPoint3D")
+
+        if not isinstance(point, NamedPoint):
+            self.collection = point[0]
+            self.group = point[1]
+            self.name = point[2]
+        else:
+            self.collection = point.collection
+            self.group = point.group
+            self.name = point.name
 
         # Get XYZ
         pData = get_point_coordinate(self.collection, self.group, self.name)
@@ -1153,9 +1158,7 @@ def make_group_to_nominal_group_relationship(
     getResult(func_name)
 
 
-def make_geometry_fit_and_compare_to_nominal_relationship(
-    relCol, relName, nomCol, nomName, data, resultCol, resultName
-):
+def make_geometry_fit_and_compare_to_nominal_relationship(relCol, relName, nomCol, nomName, data, resultCol, resultName):
     """p649"""
     func_name = "Make Geometry Fit and Compare to Nominal Relationship"
     log.debug(func_name)
