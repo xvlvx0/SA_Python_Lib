@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 SAPyLib = Spatial Analyzer Python .NET library
 
@@ -13,6 +14,7 @@ clr.AddReference("System")
 clr.AddReference("System.Reflection")
 import System
 import System.Reflection
+from System import Array, Double
 
 
 # SA SDK dll
@@ -43,16 +45,21 @@ def getResult_Bare(func_name):
 def getResult(func_name):
     """Get the methods execution result and process the result."""
     boolean, result = NrkSdk.GetMPStepResult(0)
-    log.debug(f"{func_name}: {boolean}, {result}")
     if result == -1:
         # SDKERROR = -1
+        log.error(f"{func_name}: {boolean}, {result}")
+        MPStepMessages()
         raise SystemError("Execution raised: SDKERROR!")
     elif result == 0:
         # UNDONE = 0
+        log.warning(f"{func_name}: {boolean}, {result}")
         log.warning("Execution: undone.")
+        MPStepMessages()
         raise SystemError("Execution raised: UNDONE!")
     elif result == 1:
         # INPROGRESS = 1
+        log.info(f"{func_name}: {boolean}, {result}")
+        MPStepMessages()
         log.warning("Execution: inprogress.")
         return True
     elif result == 2:
@@ -60,19 +67,47 @@ def getResult(func_name):
         return True
     elif result == 3:
         # DONEFATALERROR = 3
+        log.error(f"{func_name}: {boolean}, {result}")
         log.error("Execution: FAILED!")
+        MPStepMessages()
         return False
     elif result == 4:
         # DONEMINORERROR = 4
+        log.warning(f"{func_name}: {boolean}, {result}")
         log.warning("Execution: FAILED - minor error!")
+        MPStepMessages()
         return False
     elif result == 5:
         # CURRENTTASK = 5
+        log.debug(f"{func_name}: {boolean}, {result}")
         log.info("Execution: current task")
+        MPStepMessages()
         return True
     elif result == 6:
         # UNKNOWN = 6
+        log.debug(f"{func_name}: {boolean}, {result}")
+        log.info("I have no clue!")
+        MPStepMessages()
         raise SystemError("I have no clue!")
+
+
+def MPStepMessages():
+    """Get the MPStep messages."""
+    log.debug("Get the MPStep messages.")
+    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    try:
+        vStringList = NrkSdk.GetMPStepMessages(stringList)
+        if vStringList[0]:
+            messages = []
+            for i in range(vStringList[1].GetLength(0)):
+                messages.append(vStringList[1][i])
+                log.info(f"MPStepMessage: {vStringList[1][i]}")
+            return messages
+        else:
+            return False
+    except System.Runtime.InteropServices.COMException as err:
+        log.error(f"Getting MP Step failed with error: {err}")
+        return False
 
 
 class Point3D:
@@ -108,6 +143,38 @@ class NamedPoint3D:
         self.X = pData[0]
         self.Y = pData[1]
         self.Z = pData[2]
+
+
+def FahrenheitToCelsius(tempF):
+    """Convert Fahrenheit to Celsius."""
+    tempC = (tempF - 32) * (5 / 9)
+    return tempC
+
+
+def InchHgtoMilliBar(pressInchHg):
+    """Convert Inch Mercury (Hg) to mBar."""
+    pressMilliBar = pressInchHg * 33.864
+    return pressMilliBar
+
+
+def PythonToCSharp2Darray(input_list, array_depth=(4, 4)):
+    """Convert a python N-List to a C# Array."""
+    a = Array.CreateInstance(Double, array_depth[0], array_depth[1])
+    for i in range(array_depth[0]):
+        for j in range(array_depth[1]):
+            a.SetValue(input_list[i][j], i, j)
+    return a
+
+
+def CSharpToPython2Darray(input_array, array_depth=(4, 4)):
+    """Convert a C# Array to a N-List."""
+    a = []
+    a.append([])
+    for i in range(array_depth[0]):
+        for j in range(array_depth[1]):
+            a[i].append(input_array.GetValue(i, j))
+        a.append([])
+    return a
 
 
 # ##############################
@@ -149,14 +216,8 @@ def object_existence_test(ColObjName):
     getResult(func_name)
 
 
-def ask_for_string(question, **kwargs):
+def ask_for_string(question, initialanswer=""):
     """p117"""
-
-    if "initialanswer" in kwargs:
-        initialanswer = kwargs["initialanswer"]
-    else:
-        initialanswer = ""
-
     func_name = "Ask for String"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
@@ -622,6 +683,25 @@ def set_default_callout_view_properties(calloutname):
     getResult(func_name)
 
 
+def make_a_system_string(option):
+    """p390"""
+    func_name = "Make a System String"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    # Available options:
+    # "SA Version", "XIT Filename", "MP Filename", "MP Filename (Full Path)", "Date & Time",
+    # "Date", "Date (Short)", "Time", "Key Serial Number", "Company Name",
+    # "User Name",
+    NrkSdk.SetSystemStringArg("String Content", option)
+    NrkSdk.SetStringArg("Format String (Optional)", "")
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    sValue = NrkSdk.GetStringArg("Resultant String", "")
+    if not sValue[0]:
+        return False
+    return sValue[1]
+
+
 def make_a_point_name_runtime_select(txt):
     """p398"""
     func_name = "Make a Point Name - Runtime Select"
@@ -753,6 +833,28 @@ def make_a_relationship_reference_list_wildCard_selection(collection, relationsh
     NrkSdk.SetStringArg("Relationship Wildcard Criteria", relationship)
     NrkSdk.ExecuteStep()
     getResult(func_name)
+    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Relationship Reference List", userObjectList)
+    if objectList[0]:
+        objects = []
+        for i in range(objectList[1].GetLength(0)):
+            objects.append(objectList[1][i].split("::"))
+        return objects
+    else:
+        return False
+
+
+def make_a_relationship_reference_list_runtime_selection(question) -> list:
+    """p428"""
+    func_name = "Make a Relationship Reference List- Runtime Select"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetStringArg("User Prompt", question)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    # CStringArray objNameList;
+    # SDKHelper helper(NrkSdk);
+    # helper.GetCollectionObjectNameRefListArgHelper("Resultant Relationship Reference List", objNameList);
     userObjectList = System.Runtime.InteropServices.VariantWrapper([])
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Relationship Reference List", userObjectList)
     if objectList[0]:
@@ -981,6 +1083,41 @@ def set_vector_group_display_attributes(magnification, blotch, tolerance):
     getResult(func_name)
 
 
+def transform_object_by_delta_world_transform_operator(objects, transform):
+    """p544"""
+    func_name = "Transform Objects by Delta (World Transform Operator)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    objNameList = []
+    for item in objects:
+        objNameList.append(f"{item[0]}::{item[1]}::Point Group")
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    NrkSdk.SetCollectionObjectNameRefListArg("Objects to Transform", vObjectList)
+    T = PythonToCSharp2Darray(transform)
+    scale = 1.0
+    vMatrixobj = System.Runtime.InteropServices.VariantWrapper(T)
+    NrkSdk.SetWorldTransformArg("Delta Transform", vMatrixobj, scale)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
+def transform_objects_by_delta_about_working_frame(objects, transform):
+    """p545"""
+    func_name = "Transform Objects by Delta (About Working Frame)"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    objNameList = []
+    for item in objects:
+        objNameList.append(f"{item[0]}::{item[1]}::Point Group")
+    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    NrkSdk.SetCollectionObjectNameRefListArg("Objects to Transform", vObjectList)
+    T = PythonToCSharp2Darray(transform)
+    vMatrixobj = System.Runtime.InteropServices.VariantWrapper(T)
+    NrkSdk.SetTransformArg("Delta Transform", vMatrixobj)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
 def fit_geometry_to_point_group(
     geomType,
     dataCol,
@@ -1038,10 +1175,90 @@ def best_fit_group_to_group(
     NrkSdk.SetBoolArg("Allow Ry", True)
     NrkSdk.SetBoolArg("Allow Rz", True)
     NrkSdk.SetBoolArg("Lock Degrees of Freedom", False)
+    NrkSdk.SetBoolArg("Generate Event", False)
     NrkSdk.SetFilePathArg("File Path for CSV Text Report (requires Show Interface = TRUE)", "", False)
     NrkSdk.ExecuteStep()
-    r = getResult(func_name)
-    return r
+    getResult(func_name)
+
+    results = {}
+
+    T = System.Runtime.InteropServices.VariantWrapper([])
+    trans_in_work = NrkSdk.GetTransformArg("Transform in Working", T)
+    results["trans_in_work"] = CSharpToPython2Darray(trans_in_work[1])
+
+    T = System.Runtime.InteropServices.VariantWrapper([])
+    trans_optimum = NrkSdk.GetWorldTransformArg("Optimum Transform", T, 0.0)
+    results["trans_in_world"] = CSharpToPython2Darray(trans_optimum[1])
+    results["scale"] = trans_optimum[2]
+
+    results["rms"] = NrkSdk.GetDoubleArg("RMS Deviation", 0.0)[1]
+    results["max_abs_dev"] = NrkSdk.GetDoubleArg("Maximum Absolute Deviation", 0.0)[1]
+    results["n_unknown"] = NrkSdk.GetIntegerArg("Number of Unknowns", 0.0)[1]
+    results["n_equations"] = NrkSdk.GetIntegerArg("Numnber of Equations", 0.0)[1]
+    results["robustness"] = NrkSdk.GetDoubleArg("Robustness", 0.0)[1]
+
+    return results
+
+
+def get_measurement_weather_data(collection, group, pointname):
+    """p557"""
+    func_name = "Get Measurement Weather Data"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    temp = NrkSdk.GetDoubleArg("Temperature (deg F)", 0.0)
+    pres = NrkSdk.GetDoubleArg("Pressure (in. Hg)", 0.0)
+    humi = NrkSdk.GetDoubleArg("Humidity (% RH)", 0.0)
+    returndict = {
+        "temperature": (FahrenheitToCelsius(temp[1]), "\xb0C"),
+        "pressure": (InchHgtoMilliBar(pres[1]), "mBar"),
+        "humidity": (humi[1], "%RH"),
+        "sTemperature": ("{:.1f}".format(FahrenheitToCelsius(temp[1])), "\xb0C"),
+        "sPressure": ("{:.1f}".format(InchHgtoMilliBar(pres[1])), "mBar"),
+        "sHumidity": ("{:.1f}".format(humi[1]), "%RH"),
+    }
+    return returndict
+
+
+def get_measurement_auxiliary_data(collection, group, pointname, aux):
+    """p558"""
+    func_name = "Get Measurement Auxiliary Data"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
+    NrkSdk.SetStringArg("Auxiliary Name", aux)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    value = NrkSdk.GetDoubleArg("Value", 0.0)
+    units = NrkSdk.GetStringArg("Units", "")
+    returndict = {
+        "value": value[1],
+        "units": units[1],
+    }
+    return returndict
+
+
+def get_measurement_info_data(collection, group, pointname):
+    """p559"""
+    func_name = "Get Measurement Info Data"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+    value = NrkSdk.GetStringArg("Info Data", "")
+    if not value[1]:
+        return False
+
+    # Clean the results before returning them
+    results = []
+    values = value[1].split(";")
+    for val in values:
+        results.append(val.strip())
+
+    return results
 
 
 def make_point_to_point_relationship(relCol, relName, p1col, p1grp, p1, p2col, p2grp, p2):
@@ -1158,7 +1375,9 @@ def make_group_to_nominal_group_relationship(
     getResult(func_name)
 
 
-def make_geometry_fit_and_compare_to_nominal_relationship(relCol, relName, nomCol, nomName, data, resultCol, resultName):
+def make_geometry_fit_and_compare_to_nominal_relationship(
+    relCol, relName, nomCol, nomName, data, resultCol, resultName
+):
     """p649"""
     func_name = "Make Geometry Fit and Compare to Nominal Relationship"
     log.debug(func_name)
@@ -1306,6 +1525,40 @@ def set_geom_relationship_criteria(relCol, relName, criteriatype):
         log.warning("Incorrect criteria type set!")
     NrkSdk.ExecuteStep()
     getResult(func_name)
+
+
+def set_geom_relationship_cardinal_points(collection, relationship, groupname):
+    """p688"""
+    func_name = "Set Geom Relationship Cardinal Points"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationship)
+    NrkSdk.SetBoolArg("Create Cardinal Pts when Fitting?", True)
+    NrkSdk.SetBoolArg("Prefix Cardinal Pts name with Rel name?", True)
+    NrkSdk.SetStringArg("Cardinal Pts Group Name", groupname)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
+def get_geom_relationship_cardinal_points(collection, relationship):
+    """p689"""
+    func_name = "Get Geom Relationship Cardinal Points"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection, relationship)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        return False
+
+    ptNameList = System.Runtime.InteropServices.VariantWrapper([])
+    objectList = NrkSdk.GetCollectionObjectNameRefListArg("Cardinal Point Name List", ptNameList)
+    if objectList[0]:
+        points = []
+        for i in range(objectList[1].GetLength(0)):
+            points.append(NamedPoint(objectList[1][i].split("::")))
+        return points
+    else:
+        return False
 
 
 def set_geom_relationship_auto_vectors_nominal_avn(collection, relationshipname, bool):
@@ -1585,6 +1838,43 @@ def set_instrument_scale_absolute(collection, instid, scaleFactor):
     NrkSdk.SetDoubleArg("Scale Factor", scaleFactor)
     NrkSdk.ExecuteStep()
     getResult(func_name)
+
+
+def get_observation_info(collection, group, pointname, index=0):
+    """p951"""
+    func_name = "Get Observation Info"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetPointNameArg("Point Name", collection, group, pointname)
+    NrkSdk.SetIntegerArg("Observation Index", index)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        return False
+
+    inst = NrkSdk.GetColInstIdArg("Resulting Instrument", "", 0)
+    vector = NrkSdk.GetVectorArg("Resultant Vector", 0.0, 0.0, 0.0)
+    active = NrkSdk.GetBoolArg("Active?", False)
+    timestamp = NrkSdk.GetStringArg("Timestamp", "")
+    rmsError = NrkSdk.GetDoubleArg("RMS Error", 0.0)
+    temperature = NrkSdk.GetDoubleArg("Temperature (deg F)", 0.0)
+    pressure = NrkSdk.GetDoubleArg("Pressure (in. Hg)", 0.0)
+    humidity = NrkSdk.GetDoubleArg("Humidity (% RH)", 0.0)
+    infoData = NrkSdk.GetStringArg("Info Data", "")
+    results = {
+        "instCol": inst[1],
+        "instId": inst[2],
+        "vec_xVal": vector[1],
+        "vec_yVal": vector[2],
+        "vec_zVal": vector[3],
+        "active": active[1],
+        "timestamp": timestamp[1],
+        "rmsError": rmsError[1],
+        "temperature": temperature[1],
+        "pressure": pressure[1],
+        "humidity": humidity[1],
+        "infoData": infoData[1],
+    }
+    return results
 
 
 # ################################
