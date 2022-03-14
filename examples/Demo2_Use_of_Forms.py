@@ -152,7 +152,7 @@ if __name__ == "__main__":
     _, instid = sa.add_new_instrument("Leica AT960/930")
     scaleFactor = sa.compute_CTE_scale_factor(CTE.AluminumCTE_1DegF, partTemp)
     sa.set_instrument_scale_absolute(actuals, instid, scaleFactor)
-    sa.start_instrument("", instid, False, simulate)
+    sa.start_instrument_interface("", instid, False, simulate)
 
     if simulate:
         log.debug("Simulation!")

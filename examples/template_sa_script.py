@@ -5,7 +5,7 @@ sys.path.append("C:/Analyzer Data/Scripts/SAPython/lib")
 import SAPyLib as sa
 
 
-LOG_FILE = "C:/Analyzer Data/Scripts/SAPython/sa_debug_log.txt"
+LOG_FILE = "C:/Analyzer Data/Scripts/sa_debug_log.txt"
 logging.basicConfig(
     level=logging.DEBUG,
     filename=LOG_FILE,
