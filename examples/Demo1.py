@@ -14,12 +14,29 @@ The Demo1.mp files is connected to a button in the scripts section of the Demo1.
 This Demo1.py file executes the scripted logic.
 """
 import sys
+import logging
 
-sys.path.append("C:\Analyzer Data\Scripts\SAPython\lib")  # adding the library to the path variable
+sys.path.append("C:/Analyzer Data/Scripts/SAPython/lib")  # adding the library to the path variable
 import SAPyLib as sa  # importing the library
 
 
+LOG_FILE = "C:/Analyzer Data/Scripts/sapython/sa_debug_log.txt"
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename=LOG_FILE,
+    format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
+)
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
+logging.getLogger("").addHandler(console)
+log = logging.getLogger(__name__)
+
+
 if __name__ == "__main__":
+    # Set the SA interaction mode
+    sa.set_interaction_mode("Silent", "Never Halt", "Block Application Interaction")
+
     # Declaring variables
     nomCol = "Nominals"
     nomGroup = "NomPoints"
@@ -69,7 +86,9 @@ if __name__ == "__main__":
     for i in range(len(myPoints)):
         # make a point
         pointName = f"p{i+1}"
-        sa.construct_a_point(nomCol, nomGroup, pointName, myPoints[i].X, myPoints[i].Y, myPoints[i].Z)
+        sa.construct_a_point_in_working_coordinates(
+            nomCol, nomGroup, pointName, myPoints[i].X, myPoints[i].Y, myPoints[i].Z
+        )
         # point at
         sa.point_at_target(instCol, instId, nomCol, nomGroup, pointName)
 
@@ -89,5 +108,5 @@ if __name__ == "__main__":
     sa.stop_instrument_interface(instCol, instId)
 
     # Exit the script
-    print("Demo1 finished!")
+    log.info("Demo1 finished!")
     sys.exit(0)
