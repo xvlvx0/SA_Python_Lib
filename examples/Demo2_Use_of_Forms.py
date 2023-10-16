@@ -1,10 +1,14 @@
 """This Demo file shows the possibilities of using the Windows default Dialog Message Boxes."""
 
 import sys
+import os
 import clr
 import logging
 
-sys.path.append("C:/Analyzer Data/Scripts/SAPython/lib")
+BASE_PATH = r"C:\Analyzer Data\Scripts\SA_Python_Lib"
+LOG_FILE = os.path.join(BASE_PATH, "examples", "sa_debug_log.txt")
+
+sys.path.append(os.path.join(BASE_PATH, "lib"))
 import SAPyLib as sa
 
 clr.AddReference("System.Windows.Forms")
@@ -12,19 +16,6 @@ clr.AddReference("System.Drawing")
 
 import System.Windows.Forms as WinForms
 from System.Drawing import Size, Point, Font
-
-
-LOG_FILE = "C:/Analyzer Data/Scripts/sapython/sa_debug_log.txt"
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename=LOG_FILE,
-    format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
-)
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
-logging.getLogger("").addHandler(console)
-log = logging.getLogger(__name__)
 
 
 font = Font("Microsoft Sans Serif", 12.0)
@@ -112,6 +103,17 @@ def test_run():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=LOG_FILE,
+        format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
+    logging.getLogger("").addHandler(console)
+    log = logging.getLogger(__name__)
+
     log.debug("start")
 
     sbGroup = "SB"

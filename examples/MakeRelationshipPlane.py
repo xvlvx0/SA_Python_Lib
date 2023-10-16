@@ -3,8 +3,11 @@ This example creates a Plane Relationship as a base task.
 Additionally it can create a callout.
 """
 import sys
+import os
 
-sys.path.append("C:\Analyzer Data\Scripts\SAPython\lib")
+
+BASE_PATH = r"C:\Analyzer Data\Scripts\SA_Python_Lib"
+sys.path.append(os.path.join(BASE_PATH, "lib"))
 import SAPyLib as sa
 
 
@@ -47,7 +50,7 @@ class makeRelationshipPlane:
         sa.set_or_construct_default_collection(self.RelCollection)
 
         # work around for adding measured group to relationship
-        sa.construct_a_point("", self.MeasuredGroup, "temp", 0.0, 0.0, 0.0)
+        sa.construct_a_point_in_working_coordinates("", self.MeasuredGroup, "temp", 0.0, 0.0, 0.0)
 
         # make the relationship
         sa.make_geometry_fit_and_compare_to_nominal_relationship(

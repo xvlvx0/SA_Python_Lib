@@ -3,26 +3,29 @@ This example creates a Plane Relationship as a base task.
 Additionally it can create a callout.
 """
 import sys
+import os
 import logging
 
-sys.path.append("C:\Analyzer Data\Scripts\SAPython\lib")
+BASE_PATH = r"C:\Analyzer Data\Scripts\SA_Python_Lib"
+LOG_FILE = os.path.join(BASE_PATH, "examples", "sa_debug_log.txt")
+
+sys.path.append(os.path.join(BASE_PATH, "lib"))
 import SAPyLib as sa
 import tasks
 
-LOG_FILE = "C:/Analyzer Data/Scripts/SAPython/sa_debug_log.txt"
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename=LOG_FILE,
-    format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
-)
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
-logging.getLogger("").addHandler(console)
-log = logging.getLogger(__name__)
-
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=LOG_FILE,
+        format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
+    logging.getLogger("").addHandler(console)
+    log = logging.getLogger(__name__)
+
     nomCollection = "Nominals"  # Nominals Collection name
     nomGroup = "NomPoints"  # Nominal Point Group
     nomPlane = "NomPlane"  # Nominal Plane name
@@ -58,7 +61,7 @@ if __name__ == "__main__":
     pointlist = sa.make_a_point_name_ref_list_from_a_group(nomCollection, nomGroup)  # returns a points object
 
     # measure the nominal points
-    measurement = tasks.measurePoints(measuredcollection=collection, measuredgroup=measuredgroup, points=pointlist)
+    measurement = tasks.MeasurePoints(measuredcollection=collection, measuredgroup=measuredgroup, points=pointlist)
     measurement.measure()
 
     sa.set_or_construct_default_collection(collection)
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     # - The relationship name
     # - The measured point group name (can be an empty group)
     # - The nominal geometry [optional]
-    myPlane = tasks.makeRelationshipPlane(
+    myPlane = tasks.MakeRelationshipPlane(
         relcollection=collection,
         relname=relname,
         measuredcollection=collection,
