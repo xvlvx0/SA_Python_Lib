@@ -8,7 +8,19 @@ Author: L. Ververgaard
 import sys
 import os
 import logging
-from typing import Union
+
+# This library was developed on Python 3.9, but due to pythonnet requirements (max version available is Python3.8) it needed some back porting.
+if sys.version_info.major == 2:
+    raise OSError("This version of Python isn't supported. Version 3.8 is minimum.")
+elif sys.version_info.major == 3 and sys.version_info.minor <= 7:
+    raise OSError("This version of Python isn't supported. Version 3.8 is minimum.")
+elif sys.version_info.major == 3 and sys.version_info.minor == 8:
+    from typing import Union
+    from typing import Tuple as tuple
+    from typing import List as list
+elif sys.version_info.major == 3 and sys.version_info.minor == 9:
+    from typing import Union
+
 import clr  # #                          Python.NET library
 
 clr.AddReference("System")  # #          Import via pythonnet the .NET System Library
@@ -19,8 +31,8 @@ from System import Array, Double  # #    Use the .NET libraries in Python
 
 
 # SA SDK dll
-basepath = "C:/Analyzer Data/Scripts/SAPython"
-sa_sdk_dll_file = os.path.join(basepath, "dll/Interop.SpatialAnalyzerSDK.dll")
+basepath = r"C:\Analyzer Data\Scripts\SAPython"
+sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
 sa_sdk_class_type = sa_sdk_dll.GetType("SpatialAnalyzerSDK.SpatialAnalyzerSDKClass")
 NrkSdk = System.Activator.CreateInstance(sa_sdk_class_type)
@@ -411,7 +423,8 @@ def rename_object(old_col: str, old_name: str, new_col: str, new_name: str) -> N
     NrkSdk.SetBoolArg("Overwrite if exists?", False)
     NrkSdk.ExecuteStep()
     if not getResult(func_name):
-        raise SystemError(f"Renaming object: '{old_col}::{old_name}' failed!")
+        # raise SystemError(f"Renaming object: '{old_col}::{old_name}' failed!")
+        log.error(f"Renaming object: '{old_col}::{old_name}' failed!")
 
 
 def delete_points(collection: str, group: str, name: str) -> bool:
@@ -695,7 +708,17 @@ def set_default_callout_view_properties(name_callout: str) -> None:
     NrkSdk.SetIntegerArg("Callout Border Thickness", 2)
     NrkSdk.SetColorArg("Callout Border Color", 0, 0, 255)
     NrkSdk.SetBoolArg("Divide Text with Lines?", False)
-    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
+    NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 8, 0, 0, 0)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
+def delete_callout_view(collection: str, group: str) -> None:
+    """p410"""
+    func_name = "Delete Callout View"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Callout View", collection, group)
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
@@ -1501,40 +1524,125 @@ def get_geom_relationship_criteria(collection_relationship: str, name_relationsh
 
 
 def set_relationship_associated_data(
-    collection_relationship: str, name_relationship: str, collection_measured: str, group_measured: str
+    collection_relationship: str, name_relationship: str, method: str, **kwargs
 ) -> None:
     """p708"""
-    # The function only excepts 'groups' as an input.
-    # Individual points, point clouds and objects aren't support for now.
-
     func_name = "Set Relationship Associated Data"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection_relationship, name_relationship)
 
-    # individual points
-    vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
-    NrkSdk.SetPointNameRefListArg("Individual Points", vPointObjectList)
+    # The function switches it's method based on the variable 'method'.
+    # At this point it only excepts 'point_groups' as an input.
+    # Individual points, point clouds and objects aren't support for now.
+    if method != "point_group" or method != "point_groups":
+        log.error("This method is only valid with 'point_group' or 'point_groups' as input for now.")
+        raise ValueError("This method is only valid with 'point_group' or 'point_groups' as input for now.")
 
-    # point groups
-    objNameList = [
-        f"{collection_measured}::{group_measured}::Point Group",
-    ]
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
-    NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
+    if method == "points":
+        # individual points
+        vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        NrkSdk.SetPointNameRefListArg("Individual Points", vPointObjectList)
+    elif method == "point_group":
+        if "point_group_data" not in kwargs:
+            log.error("Missing data!")
+            raise ValueError("Missing data!")
 
-    # point cloud
-    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
-    NrkSdk.SetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
+        data = kwargs["point_group_data"]
+        objNameList = [
+            f'{data["collection_measured"]}::{data["group_measured"]}::Point Group',
+        ]
+        vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
+    elif method == "point_groups":
+        # point groups
+        if "point_groups_data" not in kwargs:
+            log.error("Missing data!")
+            raise ValueError("Missing data!")
 
-    # objects
-    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        data = kwargs["point_groups_data"]
+        objNameList = [
+            f'{data["collection_nominals"]}::{data["group_nominals"]}::Point Group',
+            f'{data["collection_measured"]}::{data["group_measured"]}::Point Group',
+        ]
+        vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
+    elif method == "point_cloud":
+        # point cloud
+        vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        NrkSdk.SetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
+    elif method == "objects":
+        # objects
+        vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        NrkSdk.SetCollectionObjectNameRefListArg("Objects", vObjectList)
 
-    NrkSdk.SetCollectionObjectNameRefListArg("Objects", vObjectList)
     # additional setting
     NrkSdk.SetBoolArg("Ignore Empty Arguments?", True)
     NrkSdk.ExecuteStep()
     getResult(func_name)
+
+
+def get_relationship_associated_data(collection_relationship: str, name_relationship: str) -> dict:
+    """p709"""
+    # The function only excepts 'groups' as an input.
+    # Individual points, point clouds and objects aren't support for now.
+
+    func_name = "Get Relationship Associated Data"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection_relationship, name_relationship)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+    results = {"relationship_type": "", "individual_points": [], "point_groups": [], "point_clouds": [], "objects": []}
+
+    # relationship_type
+    sValue = NrkSdk.GetStringArg("Relationship Type", "")
+    # log.debug(f"sValue: {sValue}")
+    if sValue[0]:
+        results["relationship_type"] = sValue[1]
+
+    # individual_points
+    vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    userPtList = NrkSdk.GetPointNameRefListArg("Individual Points", vPointObjectList)
+    # log.debug(f"userPtList: {userPtList}")
+    if userPtList[0]:
+        for i in range(userPtList[1].GetLength(0)):
+            # log.debug(f"userPtList {i}: {userPtList[1][i]}")
+            results["individual_points"].append(
+                userPtList[1][i].split("::")
+            )  # splits the string in 'collection' and 'relationship_name'
+
+    # point_groups
+    objNameList = System.Runtime.InteropServices.VariantWrapper([])
+    PointGroups = NrkSdk.GetCollectionObjectNameRefListArg("Point Groups", objNameList)
+    # log.debug(f"PointGroups: {PointGroups}")
+    if PointGroups[0]:
+        for i in range(PointGroups[1].GetLength(0)):
+            # log.debug(f"PointGroups {i}: {PointGroups[1][i]}")
+            results["point_groups"].append(
+                PointGroups[1][i].split("::")
+            )  # splits the string in 'collection' and 'relationship_name'
+
+    # point_clouds
+    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    PointClouds = NrkSdk.GetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
+    # log.debug(f"PointClouds: {PointClouds}")
+    if PointClouds[0]:
+        for i in range(PointClouds[1].GetLength(0)):
+            log.debug(f"PointClouds {i}: {PointClouds[1][i]}")
+            results["point_clouds"].append(PointClouds[1][i])
+
+    # objects
+    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    objectList = NrkSdk.GetCollectionObjectNameRefListArg("Objects", vObjectList)
+    # log.debug(f"objectList: {objectList}")
+    if objectList[0]:
+        for i in range(objectList[1].GetLength(0)):
+            log.debug(f"object {i}: {objectList[1][i]}")
+            results["objects"].append(objectList[1][i])
+
+    return results
 
 
 def set_relationship_reporting_frame(
@@ -1804,8 +1912,12 @@ def point_at_target(
     NrkSdk.SetPointNameArg("Target ID", collection_target, group_target, name_target)
     NrkSdk.SetFilePathArg("HTML Prompt File (optional)", "", False)
     NrkSdk.ExecuteStep()
-    if not getResult(func_name):
+    result = getResult_Bare(func_name)
+    if result in [-1, 0, 3, 6]:
+        log.error(f"Error code was: {result}")
         raise SystemError(f"Failed pointing at point: {collection_target}::{group_target}::{name_target}")
+    if result in [1, 2, 4, 5]:
+        return
 
 
 def measure_single_point_here(
@@ -2064,6 +2176,30 @@ def get_number_of_observations_on_target(collection: str, group: str, name: str)
     return value[1]
 
 
+def get_targets_measured_by_instrument(collection: str, instrument_id: int) -> list[NamedPoint]:
+    """p1000"""
+    func_name = "Get Targets Measured by Instrument"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetColInstIdArg("Measuring Instrument ID", collection, instrument_id)
+    NrkSdk.ExecuteStep()
+    if not getResult(func_name):
+        log.error("Executing the function resluted with an error.")
+        return []
+
+    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    ptList = NrkSdk.GetPointNameRefListArg("Points Measured by Instrument", userPtList)
+    if not ptList[0]:
+        log.warning("Tracker doesn't have measured points.")
+        return []
+
+    points = []
+    for i in range(ptList[1].GetLength(0)):
+        points.append(NamedPoint(ptList[1][i].split("::")))
+
+    return points
+
+
 def get_observation_info(collection: str, group: str, name: str, index=0) -> dict:
     """p1002"""
     func_name = "Get Observation Info"
@@ -2314,6 +2450,16 @@ def delete_objects(collection: str, name: str, objtype: str) -> None:
     ]
     vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Object Names", vObjectList)
+    NrkSdk.ExecuteStep()
+    getResult(func_name)
+
+
+def delete_items():
+    """p1152"""
+    func_name = "Delete Items"
+    log.debug(func_name)
+    NrkSdk.SetStep(func_name)
+    NrkSdk.SetCollectionObjectNameRefListArg("Item List")
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
