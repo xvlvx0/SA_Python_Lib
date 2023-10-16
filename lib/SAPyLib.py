@@ -1535,20 +1535,24 @@ def set_relationship_associated_data(
     # The function switches it's method based on the variable 'method'.
     # At this point it only excepts 'point_groups' as an input.
     # Individual points, point clouds and objects aren't support for now.
-    if method != "point_group" or method != "point_groups":
-        log.error("This method is only valid with 'point_group' or 'point_groups' as input for now.")
-        raise ValueError("This method is only valid with 'point_group' or 'point_groups' as input for now.")
+    if method not in ["point_group", "point_groups"]:
+        log.error(
+            f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}"
+        )
+        raise ValueError(
+            f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}"
+        )
 
     if method == "points":
         # individual points
         vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
         NrkSdk.SetPointNameRefListArg("Individual Points", vPointObjectList)
     elif method == "point_group":
-        if "point_group_data" not in kwargs:
-            log.error("Missing data!")
-            raise ValueError("Missing data!")
+        if "point_groups_data" not in kwargs:
+            log.error("Missing data at point_group!")
+            raise ValueError("Missing data at point_group!")
 
-        data = kwargs["point_group_data"]
+        data = kwargs["point_groups_data"]
         objNameList = [
             f'{data["collection_measured"]}::{data["group_measured"]}::Point Group',
         ]
@@ -1557,8 +1561,8 @@ def set_relationship_associated_data(
     elif method == "point_groups":
         # point groups
         if "point_groups_data" not in kwargs:
-            log.error("Missing data!")
-            raise ValueError("Missing data!")
+            log.error("Missing data at point_groups!")
+            raise ValueError("Missing data at point_groups!")
 
         data = kwargs["point_groups_data"]
         objNameList = [
