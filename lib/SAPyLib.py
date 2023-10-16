@@ -9,6 +9,10 @@ import sys
 import os
 import logging
 
+# Get the logger
+log = logging.getLogger(__name__)
+
+
 # This library was developed on Python 3.9, but due to pythonnet requirements (max version available is Python3.8) it needed some back porting.
 if sys.version_info.major == 2:
     raise OSError("This version of Python isn't supported. Version 3.8 is minimum.")
@@ -18,27 +22,39 @@ elif sys.version_info.major == 3 and sys.version_info.minor == 8:
     from typing import Union
     from typing import Tuple as tuple
     from typing import List as list
-elif sys.version_info.major == 3 and sys.version_info.minor == 9:
+elif sys.version_info.major == 3 and sys.version_info.minor >= 9:
     from typing import Union
 
 import clr  # #                          Python.NET library
 
-clr.AddReference("System")  # #          Import via pythonnet the .NET System Library
-clr.AddReference("System.Reflection")  # Import via pythonnet the .NET System.Reflection Library
-import System  # #                       Import the .NET library into Python environment
-import System.Reflection  # #            Import the .NET library into Python environment
-from System import Array, Double  # #    Use the .NET libraries in Python
+clr.AddReference("System")  # #             Import via python.net the .NET System Library
+clr.AddReference("System.Collections")  # # Import via python.net the .NET System.Collections Library
+clr.AddReference("System.Reflection")  # #  Import via python.net the .NET System.Reflection Library
+import System
+from System import Array, Double, String
+from System.Collections.Generic import List
+import System.Reflection
 
 
-# SA SDK dll
-basepath = r"C:\Analyzer Data\Scripts\SAPython"
-sa_sdk_dll_file = os.path.join(basepath, r"dll\Interop.SpatialAnalyzerSDK.dll")
+BASE_PATH = r"C:\Analyzer Data\Scripts\SA_Python_Lib"
+DLL_FOLDER = os.path.join(BASE_PATH, "dll")
+
+
+# Get SA SDK dll
+sa_sdk_dll_file = os.path.join(DLL_FOLDER, "Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
 sa_sdk_class_type = sa_sdk_dll.GetType("SpatialAnalyzerSDK.SpatialAnalyzerSDKClass")
 NrkSdk = System.Activator.CreateInstance(sa_sdk_class_type)
 SAConnected = NrkSdk.Connect("127.0.0.1")
 if not SAConnected:
     raise IOError("Connection to SA SDK failed!")
+
+
+# Get SA Python Tools dll
+sa_py_tools_dll_file = os.path.join(DLL_FOLDER, "SA_Python_Tools.dll")
+sa_py_tools_dll = System.Reflection.Assembly.LoadFile(sa_py_tools_dll_file)
+sa_py_tools_class_type = sa_py_tools_dll.GetType("SA_Python_Tools.SA_Py_Tool")
+sa_py_tools = System.Activator.CreateInstance(sa_py_tools_class_type)
 
 
 # Get the logger
@@ -109,7 +125,7 @@ def getResult(func_name: str) -> bool:
 def MPStepMessages() -> None:
     """Get the MPStep messages."""
     log.debug("Get the MPStep messages.")
-    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    stringList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     try:
         vStringList = NrkSdk.GetMPStepMessages(stringList)
         if vStringList[0]:
@@ -187,7 +203,7 @@ def InchHgtoMilliBar(pressInchHg: float) -> float:
     return pressMilliBar
 
 
-def PythonToCSharp2Darray(input_list: list, array_depth: tuple = (4, 4)) -> Array:
+def python_list_to_csharp_2D_array(input_list: list, array_depth: tuple = (4, 4)) -> Array:
     """Convert a python N-List to a C# Array."""
     CSharpArray = Array.CreateInstance(Double, array_depth[0], array_depth[1])
     for i in range(array_depth[0]):
@@ -196,15 +212,22 @@ def PythonToCSharp2Darray(input_list: list, array_depth: tuple = (4, 4)) -> Arra
     return CSharpArray
 
 
-def CSharpToPython2Darray(input_array: Array, array_depth: tuple = (4, 4)) -> list:
+def python_list_to_csharp_list(input_list: list) -> List:
+    output_list = List[String]()
+    for item in input_list:
+        output_list.Add(item)
+    return output_list
+
+
+def csharp_array_to_python_2D_list(input_array: Array, array_depth: tuple = (4, 4)) -> list:
     """Convert a C# Array to a N-List."""
-    PythonList = []
-    PythonList.append([])
+    python_list = []
+    python_list.append([])
     for i in range(array_depth[0]):
         for j in range(array_depth[1]):
-            PythonList[i].append(input_array.GetValue(i, j))
-        PythonList.append([])
-    return PythonList
+            python_list[i].append(input_array.GetValue(i, j))
+        python_list.append([])
+    return python_list
 
 
 # ##############################
@@ -222,7 +245,7 @@ def find_files_in_directory(directory: str, searchPattern: str) -> list:
     results = getResult(func_name)
     if not results:
         return []
-    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    stringList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     vStringList = NrkSdk.GetStringRefListArg("Files", stringList)
     if vStringList[0]:
         files = []
@@ -257,13 +280,12 @@ def ask_for_string_pulldown(question: str, answers: list) -> str:
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
     # question section
-    questionList = [
-        question,
-    ]
-    QvStringList = System.Runtime.InteropServices.VariantWrapper(questionList)
+    question_list = python_list_to_csharp_list([question])
+    QvStringList = sa_py_tools.GetListWrapper(question_list)
     NrkSdk.SetStringRefListArg("Question or Statement", QvStringList)
     # answers section
-    AvStringList = System.Runtime.InteropServices.VariantWrapper(answers)
+    answers_list = python_list_to_csharp_list(answers)
+    AvStringList = sa_py_tools.GetListWrapper(answers_list)
     NrkSdk.SetStringRefListArg("Possible Answers", AvStringList)
     NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.ExecuteStep()
@@ -286,10 +308,8 @@ def show_objects(collection: str, objects: str, name: str) -> None:
     func_name = "Show Objects"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    objNameList = [
-        f"{collection}::{objects}::{name}",
-    ]
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    objNameList = python_list_to_csharp_list([f"{collection}::{objects}::{name}"])
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects To Show", vObjectList)
     NrkSdk.ExecuteStep()
     getResult(func_name)
@@ -300,10 +320,8 @@ def hide_objects(collection: str, name: str, objtype: str) -> None:
     func_name = "Hide Objects"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    objNameList = [
-        f"{collection}::{name}::{objtype}",
-    ]
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    objNameList = python_list_to_csharp_list([f"{collection}::{name}::{objtype}"])
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects To Hide", vObjectList)
     NrkSdk.ExecuteStep()
     getResult(func_name)
@@ -432,10 +450,8 @@ def delete_points(collection: str, group: str, name: str) -> bool:
     func_name = "Delete Points"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    ptNameList = [
-        f"{collection}::{group}::{name}",
-    ]
-    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
+    ptNameList = python_list_to_csharp_list([f"{collection}::{group}::{name}"])
+    vPointObjectList = sa_py_tools.GetListWrapper(ptNameList)
     NrkSdk.SetPointNameRefListArg("Point Names", vPointObjectList)
     NrkSdk.ExecuteStep()
     if not getResult(func_name):
@@ -449,10 +465,8 @@ def delete_points_wildcard_selection(collection: str, group: str, name: str, obj
     func_name = "Delete Points WildCard Selection"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    objNameList = [
-        f"{collection}::{group}::{objtype}",
-    ]
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    objNameList = python_list_to_csharp_list([f"{collection}::{group}::{objtype}"])
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Groups to Delete From", vObjectList)
     NrkSdk.SetPointNameArg("WildCard Selection Names", "*", "*", name)
     NrkSdk.ExecuteStep()
@@ -668,7 +682,7 @@ def create_relationship_callout(
     NrkSdk.SetCollectionObjectNameArg("Relationship Name", collection_relationship, name_relationship)
     NrkSdk.SetDoubleArg("View X Position", xpos)
     NrkSdk.SetDoubleArg("View Y Position", ypos)
-    vStringList = System.Runtime.InteropServices.VariantWrapper([])
+    vStringList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     NrkSdk.SetEditTextArg("Additional Notes (blank for none)", vStringList)
     NrkSdk.ExecuteStep()
     getResult(func_name)
@@ -682,10 +696,8 @@ def create_text_callout(
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionObjectNameArg("Destination Callout View", collection_callout, name_callout)
-    stringList = [
-        text,
-    ]
-    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    stringList = python_list_to_csharp_list([text])
+    vStringList = sa_py_tools.GetListWrapper(stringList)
     NrkSdk.SetEditTextArg("Text", vStringList)
     NrkSdk.SetDoubleArg("View X Position", xpos)
     NrkSdk.SetDoubleArg("View Y Position", ypos)
@@ -713,12 +725,12 @@ def set_default_callout_view_properties(name_callout: str) -> None:
     getResult(func_name)
 
 
-def delete_callout_view(collection: str, group: str) -> None:
+def delete_callout_view(collection: str, callout_name: str) -> None:
     """p410"""
     func_name = "Delete Callout View"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    NrkSdk.SetCollectionObjectNameArg("Callout View", collection, group)
+    NrkSdk.SetCollectionObjectNameArg("Callout View", collection, callout_name)
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
@@ -770,7 +782,7 @@ def make_a_point_name_ref_list_from_a_group(collection: str, group: str) -> list
     NrkSdk.SetCollectionObjectNameArg("Group Name", collection, group)
     NrkSdk.ExecuteStep()
     getResult(func_name)
-    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    userPtList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     if not ptList[0]:
         return []
@@ -789,7 +801,7 @@ def make_a_point_name_ref_list_runtime_select(user_prompt: str) -> list[NamedPoi
     NrkSdk.SetStringArg("User Prompt", user_prompt)
     NrkSdk.ExecuteStep()
     getResult(func_name)
-    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    userPtList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     ptList = NrkSdk.GetPointNameRefListArg("Resultant Point Name List", userPtList)
     if not ptList[0]:
         return []
@@ -855,7 +867,7 @@ def make_a_collection_object_name_ref_list_by_type(collection: str, objtype: str
 
     NrkSdk.ExecuteStep()
     getResult(func_name)
-    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    userObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Collection Object Name List", userObjectList)
     if not objectList[0]:
         return []
@@ -877,7 +889,7 @@ def make_a_relationship_reference_list_wildCard_selection(collection: str, name_
         log.error(f"An empty results was returned for: {collection}::{name_relationship}")
         return []
 
-    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    userObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Relationship Reference List", userObjectList)
     if not objectList[0]:
         return []
@@ -895,7 +907,7 @@ def make_a_relationship_reference_list_runtime_selection(question: str) -> list[
     NrkSdk.SetStringArg("User Prompt", question)
     NrkSdk.ExecuteStep()
     getResult(func_name)
-    userObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    userObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Resultant Relationship Reference List", userObjectList)
     if not objectList[0]:
         return []
@@ -974,10 +986,8 @@ def set_vector_group_colorization_options_selected(collection: str, name_vectorg
     func_name = "Set Vector Group Colorization Options (Selected)"
     log.debug(func_name)
     NrkSdk.SetStep("Set Vector Group Colorization Options (Selected)")
-    vgNameList = [
-        f"{collection}::{name_vectorgroup}",
-    ]
-    vVectorGroupNameList = System.Runtime.InteropServices.VariantWrapper(vgNameList)
+    vgNameList = python_list_to_csharp_list([f"{collection}::{name_vectorgroup}"])
+    vVectorGroupNameList = sa_py_tools.GetListWrapper(vgNameList)
     NrkSdk.SetCollectionVectorGroupNameRefListArg("Vector Groups to be Set", vVectorGroupNameList)
     NrkSdk.SetColorizationOptionsArg(
         "Colorization Options",
@@ -1137,16 +1147,17 @@ def transform_object_by_delta_world_transform_operator(objects: list[str], trans
     NrkSdk.SetStep(func_name)
 
     # objects is a list of 'collection'::'name_obj' pairs
-    objNameList = []
+    objectsList = []
     for item in objects:
-        objNameList.append(f"{item[0]}::{item[1]}::Point Group")
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        objectsList.append(f"{item[0]}::{item[1]}::Point Group")
+    objNameList = python_list_to_csharp_list(objectsList)
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects to Transform", vObjectList)
 
     # transform is a list of 6 floats: x,y,z,rx,ry,rz
-    T = PythonToCSharp2Darray(transform)
+    T = python_list_to_csharp_2D_array(transform)
     scale = 1.0
-    vMatrixobj = System.Runtime.InteropServices.VariantWrapper(T)
+    vMatrixobj = sa_py_tools.GetListWrapper(T)
     NrkSdk.SetWorldTransformArg("Delta Transform", vMatrixobj, scale)
 
     NrkSdk.ExecuteStep()
@@ -1160,15 +1171,16 @@ def transform_objects_by_delta_about_working_frame(objects: list[tuple[str, str]
     NrkSdk.SetStep(func_name)
 
     # objects is a list of 'collection'::'name_obj' pairs
-    objNameList = []
+    objectsList = []
     for item in objects:
-        objNameList.append(f"{item[0][0]}::{item[0][1]}::Point Group")
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        objectsList.append(f"{item[0][0]}::{item[0][1]}::Point Group")
+    objectList = python_list_to_csharp_list(objectsList)
+    vObjectList = sa_py_tools.GetListWrapper(objectList)
     NrkSdk.SetCollectionObjectNameRefListArg("Objects to Transform", vObjectList)
 
     # transform is a list of 6 floats: x,y,z,rx,ry,rz
-    T = PythonToCSharp2Darray(transform)
-    vMatrixobj = System.Runtime.InteropServices.VariantWrapper(T)
+    T = python_list_to_csharp_2D_array(transform)
+    vMatrixobj = sa_py_tools.GetListWrapper(T)
     NrkSdk.SetTransformArg("Delta Transform", vMatrixobj)
     NrkSdk.ExecuteStep()
     getResult(func_name)
@@ -1240,13 +1252,13 @@ def best_fit_transformation_group_to_group(
 
     results = {}
 
-    T = System.Runtime.InteropServices.VariantWrapper([])
+    T = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     trans_in_work = NrkSdk.GetTransformArg("Transform in Working", T)
-    results["trans_in_work"] = CSharpToPython2Darray(trans_in_work[1])
+    results["trans_in_work"] = csharp_array_to_python_2D_list(trans_in_work[1])
 
-    T = System.Runtime.InteropServices.VariantWrapper([])
+    T = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     trans_optimum = NrkSdk.GetWorldTransformArg("Optimum Transform", T, 0.0)
-    results["trans_in_world"] = CSharpToPython2Darray(trans_optimum[1])
+    results["trans_in_world"] = csharp_array_to_python_2D_list(trans_optimum[1])
     results["scale"] = trans_optimum[2]
 
     results["rms"] = NrkSdk.GetDoubleArg("RMS Deviation", 0.0)[1]
@@ -1459,10 +1471,11 @@ def make_geometry_fit_and_compare_to_nominal_relationship(
     NrkSdk.SetCollectionObjectNameArg("Nominal Geometry", collection_nominal, name_nominal)
 
     # 'data' is a list of 'collection'::'pointgroupnames'
-    objNameList = []
+    objectsList = []
     for item in data:
-        objNameList.append(f"{item[0]}::{item[1]}::Point Group")
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        objectsList.append(f"{item[0]}::{item[1]}::Point Group")
+    objNameList = python_list_to_csharp_list(objectsList)
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Point Groups to Fit", vObjectList)
     NrkSdk.SetCollectionObjectNameArg("Resulting Object Name (Optional)", collection_result, name_result)
     NrkSdk.SetStringArg("Fit Profile Name (Optional)", "")
@@ -1545,7 +1558,7 @@ def set_relationship_associated_data(
 
     if method == "points":
         # individual points
-        vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        vPointObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
         NrkSdk.SetPointNameRefListArg("Individual Points", vPointObjectList)
     elif method == "point_group":
         if "point_groups_data" not in kwargs:
@@ -1553,10 +1566,10 @@ def set_relationship_associated_data(
             raise ValueError("Missing data at point_group!")
 
         data = kwargs["point_groups_data"]
-        objNameList = [
-            f'{data["collection_measured"]}::{data["group_measured"]}::Point Group',
-        ]
-        vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        objNameList = python_list_to_csharp_list(
+            [f'{data["collection_measured"]}::{data["group_measured"]}::Point Group']
+        )
+        vObjectList = sa_py_tools.GetListWrapper(objNameList)
         NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
     elif method == "point_groups":
         # point groups
@@ -1565,19 +1578,20 @@ def set_relationship_associated_data(
             raise ValueError("Missing data at point_groups!")
 
         data = kwargs["point_groups_data"]
-        objNameList = [
+        objectsList = [
             f'{data["collection_nominals"]}::{data["group_nominals"]}::Point Group',
             f'{data["collection_measured"]}::{data["group_measured"]}::Point Group',
         ]
-        vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+        objNameList = python_list_to_csharp_list(objectsList)
+        vObjectList = sa_py_tools.GetListWrapper(objNameList)
         NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
     elif method == "point_cloud":
         # point cloud
-        vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        vObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
         NrkSdk.SetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
     elif method == "objects":
         # objects
-        vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+        vObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
         NrkSdk.SetCollectionObjectNameRefListArg("Objects", vObjectList)
 
     # additional setting
@@ -1607,7 +1621,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
         results["relationship_type"] = sValue[1]
 
     # individual_points
-    vPointObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    vPointObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     userPtList = NrkSdk.GetPointNameRefListArg("Individual Points", vPointObjectList)
     # log.debug(f"userPtList: {userPtList}")
     if userPtList[0]:
@@ -1618,7 +1632,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
             )  # splits the string in 'collection' and 'relationship_name'
 
     # point_groups
-    objNameList = System.Runtime.InteropServices.VariantWrapper([])
+    objNameList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     PointGroups = NrkSdk.GetCollectionObjectNameRefListArg("Point Groups", objNameList)
     # log.debug(f"PointGroups: {PointGroups}")
     if PointGroups[0]:
@@ -1629,7 +1643,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
             )  # splits the string in 'collection' and 'relationship_name'
 
     # point_clouds
-    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    vObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     PointClouds = NrkSdk.GetCollectionObjectNameRefListArg("Point Clouds", vObjectList)
     # log.debug(f"PointClouds: {PointClouds}")
     if PointClouds[0]:
@@ -1638,7 +1652,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
             results["point_clouds"].append(PointClouds[1][i])
 
     # objects
-    vObjectList = System.Runtime.InteropServices.VariantWrapper([])
+    vObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Objects", vObjectList)
     # log.debug(f"objectList: {objectList}")
     if objectList[0]:
@@ -1731,7 +1745,7 @@ def get_geom_relationship_cardinal_points(collection_relationship: str, name_rel
     if not getResult(func_name):
         return []
 
-    ptNameList = System.Runtime.InteropServices.VariantWrapper([])
+    ptNameList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     objectList = NrkSdk.GetCollectionObjectNameRefListArg("Cardinal Point Name List", ptNameList)
     if not objectList[0]:
         return []
@@ -1865,10 +1879,8 @@ def notify_user_text_array(txt: str, timeout: int = 0) -> None:
     func_name = "Notify User Text Array"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    stringList = [
-        txt,
-    ]
-    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    stringList = python_list_to_csharp_list([txt])
+    vStringList = sa_py_tools.GetListWrapper(stringList)
     NrkSdk.SetEditTextArg("Notification Text", vStringList)
     NrkSdk.SetFontTypeArg("Font", "MS Shell Dlg", 12, 0, 0, 0)
     NrkSdk.SetBoolArg("Auto expand to fit text?", False)
@@ -1982,10 +1994,11 @@ def initiate_servo_guide(
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
     NrkSdk.SetColInstIdArg("Instrument ID", collection_inst, id_inst)
-    ptNameList = []
+    ptList = []
     for point in nomPoints:
-        ptNameList.append(f"{point.collection}::{point.group}::{point.name}")
-    vPointObjectList = System.Runtime.InteropServices.VariantWrapper(ptNameList)
+        ptList.append(f"{point.collection}::{point.group}::{point.name}")
+    ptNameList = python_list_to_csharp_list(ptList)
+    vPointObjectList = sa_py_tools.GetListWrapper(ptNameList)
     NrkSdk.SetPointNameRefListArg("Nominal Points", vPointObjectList)
     NrkSdk.SetStringArg("Group name suffix", groupname_suffix)
     NrkSdk.SetStringArg("Target name suffix", targetname_suffix)
@@ -2191,7 +2204,7 @@ def get_targets_measured_by_instrument(collection: str, instrument_id: int) -> l
         log.error("Executing the function resluted with an error.")
         return []
 
-    userPtList = System.Runtime.InteropServices.VariantWrapper([])
+    userPtList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     ptList = NrkSdk.GetPointNameRefListArg("Points Measured by Instrument", userPtList)
     if not ptList[0]:
         log.warning("Tracker doesn't have measured points.")
@@ -2391,7 +2404,7 @@ def get_folders_by_wildcard(search: str) -> list[str]:
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
-    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    stringList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     vStringList = NrkSdk.GetStringRefListArg("Folder List", stringList)
     if vStringList[0]:
         return []
@@ -2410,7 +2423,7 @@ def get_folder_collections(folder: str) -> list[str]:
     NrkSdk.ExecuteStep()
     getResult(func_name)
 
-    stringList = System.Runtime.InteropServices.VariantWrapper([])
+    stringList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
     vStringList = NrkSdk.GetStringRefListArg("Collection List", stringList)
     if not vStringList[0]:
         return []
@@ -2426,8 +2439,8 @@ def set_collection_notes(collection: str, notes: str) -> None:
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
     NrkSdk.SetCollectionNameArg("Collection", collection)
-    stringList = [notes]
-    vStringList = System.Runtime.InteropServices.VariantWrapper(stringList)
+    stringList = python_list_to_csharp_list([notes])
+    vStringList = sa_py_tools.GetListWrapper(stringList)
     NrkSdk.SetEditTextArg("Notes", vStringList)
     NrkSdk.SetBoolArg("Append? (FALSE = Overwrite)", True)
     NrkSdk.ExecuteStep()
@@ -2449,10 +2462,11 @@ def delete_objects(collection: str, name: str, objtype: str) -> None:
     func_name = "Delete Objects"
     log.debug(func_name)
     NrkSdk.SetStep(func_name)
-    objNameList = [
+    objectsList = [
         f"{collection}::{name}::{objtype}",
     ]
-    vObjectList = System.Runtime.InteropServices.VariantWrapper(objNameList)
+    objNameList = python_list_to_csharp_list(objectsList)
+    vObjectList = sa_py_tools.GetListWrapper(objNameList)
     NrkSdk.SetCollectionObjectNameRefListArg("Object Names", vObjectList)
     NrkSdk.ExecuteStep()
     getResult(func_name)
