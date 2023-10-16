@@ -1263,8 +1263,8 @@ def best_fit_transformation_group_to_group(
 
     results["rms"] = NrkSdk.GetDoubleArg("RMS Deviation", 0.0)[1]
     results["max_abs_dev"] = NrkSdk.GetDoubleArg("Maximum Absolute Deviation", 0.0)[1]
-    results["n_unknown"] = NrkSdk.GetIntegerArg("Number of Unknowns", 0.0)[1]
-    results["n_equations"] = NrkSdk.GetIntegerArg("Numnber of Equations", 0.0)[1]
+    results["n_unknown"] = NrkSdk.GetIntegerArg("Number of Unknowns", 0)[1]
+    results["n_equations"] = NrkSdk.GetIntegerArg("Numnber of Equations", 0)[1]
     results["robustness"] = NrkSdk.GetDoubleArg("Robustness", 0.0)[1]
 
     return results
