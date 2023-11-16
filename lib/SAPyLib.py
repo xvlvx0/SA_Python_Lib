@@ -45,8 +45,10 @@ sa_sdk_dll_file = os.path.join(DLL_FOLDER, "Interop.SpatialAnalyzerSDK.dll")
 sa_sdk_dll = System.Reflection.Assembly.LoadFile(sa_sdk_dll_file)
 sa_sdk_class_type = sa_sdk_dll.GetType("SpatialAnalyzerSDK.SpatialAnalyzerSDKClass")
 NrkSdk = System.Activator.CreateInstance(sa_sdk_class_type)
-SAConnected = NrkSdk.Connect("127.0.0.1")
-if not SAConnected:
+SDK_Err_Code = 0
+SAConnected = NrkSdk.ConnectEx("127.0.0.1", SDK_Err_Code)
+if not SAConnected and SDK_Err_Code != 0:
+    print(f"Error code: {SDK_Err_Code}")
     raise IOError("Connection to SA SDK failed!")
 
 
@@ -404,9 +406,7 @@ def center_graphics_about_objects(objtype: str = "Any", ColWild: str = "*", ObjW
 # ######################################
 # Chapter 7 - Construction Operations ##
 # ######################################
-def rename_point(
-    orgCol: str, orgGrp: str, orgName: str, newCol: str, newGrp: str, newName: str, overwrite: bool = False
-) -> None:
+def rename_point(orgCol: str, orgGrp: str, orgName: str, newCol: str, newGrp: str, newName: str, overwrite: bool = False) -> None:
     """p216"""
     func_name = "Rename Point"
     log.debug(func_name)
@@ -560,9 +560,7 @@ def delete_collection(collection: str) -> None:
     getResult(func_name)
 
 
-def construct_a_point_in_working_coordinates(
-    collection: str, group: str, name: str, x: float, y: float, z: float
-) -> None:
+def construct_a_point_in_working_coordinates(collection: str, group: str, name: str, x: float, y: float, z: float) -> None:
     """p232"""
     func_name = "Construct a Point in Working Coordinates"
     log.debug(func_name)
@@ -688,9 +686,7 @@ def create_relationship_callout(
     getResult(func_name)
 
 
-def create_text_callout(
-    collection_callout: str, name_callout: str, text: str, xpos: float = 0.1, ypos: float = 0.1
-) -> None:
+def create_text_callout(collection_callout: str, name_callout: str, text: str, xpos: float = 0.1, ypos: float = 0.1) -> None:
     """p402"""
     func_name = "Create Text Callout"
     log.debug(func_name)
@@ -1536,9 +1532,7 @@ def get_geom_relationship_criteria(collection_relationship: str, name_relationsh
     return results
 
 
-def set_relationship_associated_data(
-    collection_relationship: str, name_relationship: str, method: str, **kwargs
-) -> None:
+def set_relationship_associated_data(collection_relationship: str, name_relationship: str, method: str, **kwargs) -> None:
     """p708"""
     func_name = "Set Relationship Associated Data"
     log.debug(func_name)
@@ -1549,12 +1543,8 @@ def set_relationship_associated_data(
     # At this point it only excepts 'point_groups' as an input.
     # Individual points, point clouds and objects aren't support for now.
     if method not in ["point_group", "point_groups"]:
-        log.error(
-            f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}"
-        )
-        raise ValueError(
-            f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}"
-        )
+        log.error(f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}")
+        raise ValueError(f"This method is only valid with 'point_group' or 'point_groups' as input for now. Input was: {method}")
 
     if method == "points":
         # individual points
@@ -1566,9 +1556,7 @@ def set_relationship_associated_data(
             raise ValueError("Missing data at point_group!")
 
         data = kwargs["point_groups_data"]
-        objNameList = python_list_to_csharp_list(
-            [f'{data["collection_measured"]}::{data["group_measured"]}::Point Group']
-        )
+        objNameList = python_list_to_csharp_list([f'{data["collection_measured"]}::{data["group_measured"]}::Point Group'])
         vObjectList = sa_py_tools.GetListWrapper(objNameList)
         NrkSdk.SetCollectionObjectNameRefListArg("Point Groups", vObjectList)
     elif method == "point_groups":
@@ -1627,9 +1615,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
     if userPtList[0]:
         for i in range(userPtList[1].GetLength(0)):
             # log.debug(f"userPtList {i}: {userPtList[1][i]}")
-            results["individual_points"].append(
-                userPtList[1][i].split("::")
-            )  # splits the string in 'collection' and 'relationship_name'
+            results["individual_points"].append(userPtList[1][i].split("::"))  # splits the string in 'collection' and 'relationship_name'
 
     # point_groups
     objNameList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
@@ -1638,9 +1624,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
     if PointGroups[0]:
         for i in range(PointGroups[1].GetLength(0)):
             # log.debug(f"PointGroups {i}: {PointGroups[1][i]}")
-            results["point_groups"].append(
-                PointGroups[1][i].split("::")
-            )  # splits the string in 'collection' and 'relationship_name'
+            results["point_groups"].append(PointGroups[1][i].split("::"))  # splits the string in 'collection' and 'relationship_name'
 
     # point_clouds
     vObjectList = sa_py_tools.GetListWrapper(python_list_to_csharp_list([]))
@@ -1663,9 +1647,7 @@ def get_relationship_associated_data(collection_relationship: str, name_relation
     return results
 
 
-def set_relationship_reporting_frame(
-    collection_relationship: str, name_relationship: str, collection_frame: str, name_frame: str
-) -> None:
+def set_relationship_reporting_frame(collection_relationship: str, name_relationship: str, collection_frame: str, name_frame: str) -> None:
     """p723"""
     func_name = "Set Relationship Reporting Frame"
     log.debug(func_name)
@@ -1720,9 +1702,7 @@ def set_geom_relationship_criteria(collection_relationship: str, name_relationsh
     getResult(func_name)
 
 
-def set_geom_relationship_cardinal_points(
-    collection_relationship: str, name_relationship: str, name_group: str
-) -> None:
+def set_geom_relationship_cardinal_points(collection_relationship: str, name_relationship: str, name_group: str) -> None:
     """p734"""
     func_name = "Set Geom Relationship Cardinal Points"
     log.debug(func_name)
@@ -1755,9 +1735,7 @@ def get_geom_relationship_cardinal_points(collection_relationship: str, name_rel
     return points
 
 
-def set_geom_relationship_auto_vectors_nominal_avn(
-    collection_relationship: str, name_relationship: str, create_autovectors: bool
-) -> None:
+def set_geom_relationship_auto_vectors_nominal_avn(collection_relationship: str, name_relationship: str, create_autovectors: bool) -> None:
     """p739"""
     func_name = "Set Geom Relationship Auto Vectors Nominal (AVN)"
     log.debug(func_name)
@@ -1768,9 +1746,7 @@ def set_geom_relationship_auto_vectors_nominal_avn(
     getResult(func_name)
 
 
-def set_relationship_auto_vectors_fit_avf(
-    collection_relationship: str, name_relationship: str, create_autovectors: bool
-) -> None:
+def set_relationship_auto_vectors_fit_avf(collection_relationship: str, name_relationship: str, create_autovectors: bool) -> None:
     """p740"""
     func_name = "Set Relationship Auto Vectors Fit (AVF)"
     log.debug(func_name)
@@ -1917,9 +1893,7 @@ def get_last_instrument_index() -> int:
     return InstID[1]
 
 
-def point_at_target(
-    collection_inst: str, id_inst: int, collection_target: str, group_target: str, name_target: str
-) -> None:
+def point_at_target(collection_inst: str, id_inst: int, collection_target: str, group_target: str, name_target: str) -> None:
     """p927"""
     func_name = "Point At Target"
     log.debug(func_name)
@@ -2009,9 +1983,7 @@ def initiate_servo_guide(
     return True
 
 
-def watch_point_to_point(
-    collection_inst: str, id_inst: int, ref_point: Union[NamedPoint, NamedPoint3D], measure_mode
-) -> None:
+def watch_point_to_point(collection_inst: str, id_inst: int, ref_point: Union[NamedPoint, NamedPoint3D], measure_mode) -> None:
     """p945"""
     func_name = "Watch Point To Point"
     log.debug(func_name)
@@ -2029,9 +2001,7 @@ def watch_point_to_point(
     getResult(func_name)
 
 
-def watch_point_to_point_with_view_zooming(
-    collection_inst: str, id_inst: int, ref_point: Union[NamedPoint, NamedPoint3D]
-) -> None:
+def watch_point_to_point_with_view_zooming(collection_inst: str, id_inst: int, ref_point: Union[NamedPoint, NamedPoint3D]) -> None:
     """p950"""
     func_name = "Watch Point To Point With View Zooming"
     log.debug(func_name)
@@ -2043,9 +2013,7 @@ def watch_point_to_point_with_view_zooming(
     getResult(func_name)
 
 
-def start_instrument_interface(
-    collection_inst: str, id_inst: int, initialize: bool = True, simulation: bool = False
-) -> None:
+def start_instrument_interface(collection_inst: str, id_inst: int, initialize: bool = True, simulation: bool = False) -> None:
     """p952"""
     func_name = "Start Instrument Interface"
     log.debug(func_name)

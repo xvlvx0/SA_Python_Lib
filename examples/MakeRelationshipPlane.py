@@ -4,9 +4,12 @@ Additionally it can create a callout.
 """
 import sys
 import os
+import logging
 
 
 BASE_PATH = r"C:\Analyzer Data\Scripts\SA_Python_Lib"
+LOG_FILE = os.path.join(BASE_PATH, "examples", "sa_debug_log.txt")
+
 sys.path.append(os.path.join(BASE_PATH, "lib"))
 import SAPyLib as sa
 
@@ -92,6 +95,22 @@ class makeRelationshipPlane:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename=LOG_FILE,
+        format="%(asctime)-12s - %(name)-8s - %(levelname)s - %(message)s",
+    )
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(logging.Formatter("%(name)-8s - %(levelname)-8s - %(message)s"))
+    logging.getLogger("").addHandler(console)
+    log = logging.getLogger(__name__)
+
+    log.info("MakeRelationshipPlane start!")
+
+    # Set the SA interaction mode
+    sa.set_interaction_mode("Silent", "Never Halt", "Block Application Interaction")
+
     collection = "MyCollection"  # destination collection
     relname = "MyPlane"  # relationshipname
     measuredgroup = "MyMeasuredPoints"  # The group containing the measured points
@@ -118,4 +137,5 @@ if __name__ == "__main__":
     myPlane.make()
     # myPlane.addCallout()
 
+    log.info("MakeRelationshipPlane finished!")
     sys.exit(0)

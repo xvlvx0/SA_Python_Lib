@@ -125,13 +125,13 @@ if __name__ == "__main__":
     log.debug("Show the dialog")
     dialogResult = WinForms.MessageBox.Show("Start new job?", "Prompt", WinForms.MessageBoxButtons.OKCancel)
     if not dialogResult == WinForms.DialogResult.OK:
-        raise Exception("User Aborted New Job")
+        raise OSError("User Aborted New Job")
 
     scalebarLength = 0.0
     while scalebarLength == 0.0 or scalebarLength < 80.0 or scalebarLength > 81.0:
         try:
             scalebarLength = float(user_query("Scalebar Length (in)"))
-        except:
+        except ValueError:
             scalebarLength = 0.0
     log.debug(f"scalebarLength: {scalebarLength}")
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     while partTemp == 0.0 or partTemp < 50.0 or partTemp > 120.0:
         try:
             partTemp = float(user_query("Part Temp (F)"))
-        except:
+        except ValueError:
             partTemp = 0.0
     log.debug(f"partTemp: {partTemp}")
 
